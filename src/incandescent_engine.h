@@ -12,7 +12,8 @@ public:
     bool is_initialized = false;
     int frame_number = 0;
     bool stop_rendering = false;
-    VkExtent2D window_extent{1700, 900};
+    const int WIDTH = 1700;
+    const int HEIGHT = 900;
 
     // Forward declaration reduces compile times and ambiguity for the compiler
     struct SDL_Window *window = nullptr;

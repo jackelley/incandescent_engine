@@ -17,9 +17,6 @@
 #include <vulkan/vk_enum_string_helper.h>
 #include <vk_mem_alloc.h>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
-
 #include <fmt/core.h>
 #include <Eigen/Dense>
 
