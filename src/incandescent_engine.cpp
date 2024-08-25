@@ -52,8 +52,6 @@ void IncandescentEngine::run() {
     SDL_Event event;
     bool quit = false;
 
-    int click_count = 0;
-
     // While we haven't quit the window
     while (!quit) {
         // While there are still events in the queue
@@ -67,8 +65,7 @@ void IncandescentEngine::run() {
             }
 
             if (event.type == SDL_KEYDOWN) {
-                click_count++;
-                fmt::print("click {} \n", click_count);
+                fmt::print("keylog: {}\n", event.key.keysym.sym);
             }
 
 
