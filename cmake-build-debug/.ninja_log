@@ -1,0 +1,12 @@
+# ninja log v6
+1	405	1724551418823844435	CMakeFiles/ImGui.dir/Users/jackkelley/code_packages/imgui-master/imgui_widgets.cpp.o	d665bb650dd8d29a
+1	76	1724553990455738800	build.ninja	51e5dd1abbf4f01a
+240	268	1724551419812454424	incandescent-v0.1	171674139452968e
+0	461	1724551418822985600	CMakeFiles/ImGui.dir/Users/jackkelley/code_packages/imgui-master/imgui.cpp.o	78babdb73f424170
+461	500	1724551419283959367	libImGui.a	4e30a7445c36452e
+0	241	1724551418823447559	CMakeFiles/ImGui.dir/Users/jackkelley/code_packages/imgui-master/imgui_tables.cpp.o	6532659347572982
+0	303	1724551418823183559	CMakeFiles/ImGui.dir/Users/jackkelley/code_packages/imgui-master/imgui_demo.cpp.o	1f7624b640a3d252
+0	306	1724551418823282434	CMakeFiles/ImGui.dir/Users/jackkelley/code_packages/imgui-master/imgui_draw.cpp.o	1cbf7cf8afbb853f
+0	239	1724551419573436676	CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o	172ec29314cc0c8f
+3	672	1724553996393277477	CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o	6c10da5d278ce842
+3	677	1724554144723718971	CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o	3adbdeb5e10bdb38
