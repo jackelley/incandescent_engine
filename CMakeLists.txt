@@ -11,6 +11,7 @@ find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
 find_package(fmt CONFIG REQUIRED)
 
+
 add_executable(incandescent-v0.1 src/main.cpp
         src/incandescent_engine.cpp
         src/incandescent_engine.h

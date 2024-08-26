@@ -90,6 +90,8 @@ void IncandescentEngine::initialize_vulkan() {
     // Create instance and assign to handle
     VkResult instance_result = vkCreateInstance(&inst_info, nullptr, &instance);
 
+    volkLoadInstance(instance);
+
     // Validation
     if (instance_result < 0) {
         std::cout << "Failed to create instance!" << std::endl;
@@ -125,6 +127,8 @@ void IncandescentEngine::initialize_vulkan() {
     vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
     // ??? NEXT STEP IS TO CHECK WHETHER DEVICES ARE SUITABLE ???
+    // Ok the issue was that I forgot to load the instance into volk so the functions weren't able to be found
+    // because the other flags had been set to disable the normal way for vulkan to find functions
     // https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
     // https://github.com/zeux/volk?tab=readme-ov-file#optimizing-device-calls
 }
