@@ -231,6 +231,12 @@ Vulkan_INCLUDE_DIR:PATH=/usr/local/include
 //Path to a library.
 Vulkan_LIBRARY:FILEPATH=/usr/local/lib/libvulkan.dylib
 
+//Path to a file.
+Vulkan_MoltenVK_INCLUDE_DIR:PATH=/usr/local/include
+
+//Path to a library.
+Vulkan_MoltenVK_LIBRARY:FILEPATH=/usr/local/lib/MoltenVK.xcframework
+
 //The directory containing a CMake configuration file for fmt.
 fmt_DIR:PATH=/opt/homebrew/lib/cmake/fmt
 
@@ -400,4 +406,8 @@ Vulkan_GLSLC_EXECUTABLE-ADVANCED:INTERNAL=1
 Vulkan_INCLUDE_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: Vulkan_LIBRARY
 Vulkan_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Vulkan_MoltenVK_INCLUDE_DIR
+Vulkan_MoltenVK_INCLUDE_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Vulkan_MoltenVK_LIBRARY
+Vulkan_MoltenVK_LIBRARY-ADVANCED:INTERNAL=1
 

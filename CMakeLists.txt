@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Vulkan COMPONENTS MoltenVK)
 find_package(Vulkan)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
@@ -13,7 +14,10 @@ find_package(fmt CONFIG REQUIRED)
 add_executable(incandescent-v0.1 src/main.cpp
         src/incandescent_engine.cpp
         src/incandescent_engine.h
-        src/incandescent_types.h)
+        src/incandescent_types.h
+        src/VkBootstrapDispatch.h
+        src/VkBootstrap.h
+        src/VkBootstrap.cpp)
 
 # Set where the ImGui files are stored
 set(IMGUI_PATH "/Users/jackkelley/code_packages/imgui-master")
@@ -31,7 +35,7 @@ target_link_directories(incandescent-v0.1 PRIVATE /Users/jackkelley/code_package
 target_include_directories(incandescent-v0.1 PRIVATE /Users/jackkelley/code_packages/stb-master)
 target_link_directories(incandescent-v0.1 PRIVATE /Users/jackkelley/code_packages/stb-master)
 target_include_directories(incandescent-v0.1 PRIVATE /Users/jackkelley/CLionProjects/incandescent-v0.1/src)
-target_link_directories(incandescent-v0.1 PRIVATE /Users/jackkelley/CLionProjects/incandescent-v0.1/src )
+target_link_directories(incandescent-v0.1 PRIVATE /Users/jackkelley/CLionProjects/incandescent-v0.1/src)
 target_link_libraries(incandescent-v0.1 PRIVATE Vulkan::Vulkan)
 target_link_libraries(incandescent-v0.1 PRIVATE Eigen3::Eigen)
 target_link_libraries(incandescent-v0.1 PRIVATE SDL2::SDL2)

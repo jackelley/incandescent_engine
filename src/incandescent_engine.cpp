@@ -6,19 +6,20 @@
 
 #include <chrono>
 #include <thread>
-
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
-constexpr bool use_validation_layers = false;
+constexpr bool use_validation_layers = true;
 
-IncandescentEngine *loaded_engine = nullptr;
+IncandescentEngine* loaded_engine = nullptr;
 
-IncandescentEngine &IncandescentEngine::Get() {
+IncandescentEngine& IncandescentEngine::Get() {
     return *loaded_engine;
 }
 
 void IncandescentEngine::initialize() {
+    // Set up dynamic function dispatcher
+
     // Make sure that there isn't already an initialized engine
     assert(loaded_engine == nullptr);
     loaded_engine = this;
@@ -29,11 +30,59 @@ void IncandescentEngine::initialize() {
     SDL_WindowFlags window_flags = (SDL_WINDOW_VULKAN);
 
     window = SDL_CreateWindow("Incandescent Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        WIDTH, HEIGHT, window_flags);
+                              WIDTH, HEIGHT, window_flags);
+
+    initialize_vulkan();
+
+    initialize_swapchain();
+
+    initialize_commands();
+
+    initialize_sync_structures();
 
     // Set success check bool to true
     is_initialized = true;
 }
+
+void IncandescentEngine::initialize_vulkan() {
+    vk::DynamicLoader dynamic_loader;
+    auto vkGetInstanceProcAddr = dynamic_loader.getProcAddress<PFN_vkGetInstanceProcAddr>(
+        "vkGetInstanceProcAddr");
+
+    /* -------- Instance -------- */
+
+    /* -------- Surface -------- */
+    // Create the Vulkan surface
+    SDL_Vulkan_CreateSurface(window, instance, &surface);
+
+    /* -------- Device -------- */
+    // Enable some Vulkan 1.3 features
+    VkPhysicalDeviceVulkan13Features features13;
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    features13.dynamicRendering = true;
+    features13.synchronization2 = true;
+
+    // Enable some Vulkan 1.2 features
+    VkPhysicalDeviceVulkan12Features features12;
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    features12.bufferDeviceAddress = true;
+    features12.descriptorIndexing = true;
+}
+
+void IncandescentEngine::initialize_swapchain() {
+    // To be implemented
+}
+
+void IncandescentEngine::initialize_commands() {
+    // To be implemented
+}
+
+void IncandescentEngine::initialize_sync_structures() {
+    // To be implemented
+}
+
+
+
 
 void IncandescentEngine::cleanup() {
     if (is_initialized) {
@@ -93,9 +142,3 @@ void IncandescentEngine::run() {
         draw();
     }
 }
-
-
-
-
-
-

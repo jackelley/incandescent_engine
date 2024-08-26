@@ -1134,6 +1134,7 @@ PhysicalDevice PhysicalDeviceSelector::populate_device_details(
         fill_chain.chain_up(local_features);
         // Use KHR function if not able to use the core function
         if (instance_is_1_1) {
+            //detail::vulkan_functions().fp_vkGetPhysicalDeviceFeatures2(vk_phys_device, &local_features);
             detail::vulkan_functions().fp_vkGetPhysicalDeviceFeatures2(vk_phys_device, &local_features);
         } else {
             detail::vulkan_functions().fp_vkGetPhysicalDeviceFeatures2KHR(vk_phys_device, &local_features);
