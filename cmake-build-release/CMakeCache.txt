@@ -232,7 +232,7 @@ Vulkan_INCLUDE_DIR:PATH=/usr/local/include
 Vulkan_LIBRARY:FILEPATH=/usr/local/lib/libvulkan.dylib
 
 //Path to a file.
-Vulkan_MoltenVK_INCLUDE_DIR:PATH=/usr/local/include
+Vulkan_MoltenVK_INCLUDE_DIR:PATH=/opt/homebrew/include
 
 //Path to a library.
 Vulkan_MoltenVK_LIBRARY:FILEPATH=/usr/local/lib/MoltenVK.xcframework

@@ -1,4 +1,3 @@
 /Users/jackkelley/CLionProjects/incandescent-v0.1/cmake-build-debug/CMakeFiles/incandescent-v0.1.dir
-/Users/jackkelley/CLionProjects/incandescent-v0.1/cmake-build-debug/CMakeFiles/ImGui.dir
 /Users/jackkelley/CLionProjects/incandescent-v0.1/cmake-build-debug/CMakeFiles/edit_cache.dir
 /Users/jackkelley/CLionProjects/incandescent-v0.1/cmake-build-debug/CMakeFiles/rebuild_cache.dir

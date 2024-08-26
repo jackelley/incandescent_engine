@@ -12,6 +12,7 @@
 
 #define VOLK_IMPLEMENTATION
 #include <iostream>
+#include <queue>
 #include <volk.h>
 
 constexpr bool use_validation_layers = true;
@@ -89,7 +90,6 @@ void IncandescentEngine::initialize_vulkan() {
 
     // Create instance and assign to handle
     VkResult instance_result = vkCreateInstance(&inst_info, nullptr, &instance);
-
     volkLoadInstance(instance);
 
     // Validation
@@ -101,37 +101,125 @@ void IncandescentEngine::initialize_vulkan() {
     // Create the Vulkan surface
     SDL_Vulkan_CreateSurface(window, instance, &surface);
 
-    /* -------- Device -------- */
-    // Enable some Vulkan 1.3 features
-    VkPhysicalDeviceVulkan13Features features13;
-    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    features13.dynamicRendering = true;
-    features13.synchronization2 = true;
-
-    // Enable some Vulkan 1.2 features
-    VkPhysicalDeviceVulkan12Features features12;
-    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    features12.bufferDeviceAddress = true;
-    features12.descriptorIndexing = true;
-
+    /* -------- Physical Device -------- */
     VkPhysicalDevice physical_device;
 
     // Get count of devices
     u_int32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
     if (device_count == 0) {
-        throw std::runtime_error("Failed to find supported GPU!");
+        throw std::runtime_error("Failed to find  GPU!");
     }
 
-    std::vector<VkPhysicalDevice> devices(device_count);
-    vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
+    std::vector<VkPhysicalDevice> physical_devices(device_count);
+    vkEnumeratePhysicalDevices(instance, &device_count, physical_devices.data());
 
-    // ??? NEXT STEP IS TO CHECK WHETHER DEVICES ARE SUITABLE ???
-    // Ok the issue was that I forgot to load the instance into volk so the functions weren't able to be found
-    // because the other flags had been set to disable the normal way for vulkan to find functions
+    // First, just assign to the first device in the list. This makes sure that a device is
+    // always selected even if it isn't a discrete GPU (next check)
+    physical_device = physical_devices.front();
+
+    // For all of our found devices
+    for (const auto &device : physical_devices) {
+        VkPhysicalDeviceProperties physical_device_properties;
+        vkGetPhysicalDeviceProperties(device, &physical_device_properties);
+        // Select if the physical device is a discrete GPU
+        // For the time being don't check if the above features12 and features13 are supported, that can
+        // be implemented later
+        if (physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            physical_device = device;
+        }
+    }
+
     // https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
     // https://github.com/zeux/volk?tab=readme-ov-file#optimizing-device-calls
+
+    // Create queue family struct for later
+    struct queue_family_indices_struct {
+        // Graphics queue family
+        std::optional<u_int32_t> graphics_family;
+        // Add to this to check for other graphics families
+        bool has_graphics_family() {
+            return graphics_family.has_value();
+        }
+    };
+
+    queue_family_indices_struct queue_family_indices;
+
+    // Get vector of queue family property objects
+    u_int32_t queue_family_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
+
+    // Add more of these loops to get indices for multiple families and throw error if they don't exist
+    // Graphics queue
+    for (int i = 0; i < queue_family_count; i++) {
+        // Try to find graphics queue family via checking if reference exists in queueFlags bitmask
+        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            queue_family_indices.graphics_family = i;
+            break;
+        }
+    }
+
+    // Compute queue
+    if (!queue_family_indices.has_graphics_family()) {
+        throw std::runtime_error("Queue family supporting graphics not found!");
+    }
+    for (int i = 0; i < queue_family_count; i++) {
+        // Try to find graphics queue family via checking if reference exists in queueFlags bitmask
+        if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            queue_family_indices.graphics_family = i;
+            break;
+        }
+    }
+    if (!queue_family_indices.has_graphics_family()) {
+        throw std::runtime_error("Queue family supporting compute not found!");
+    }
+
+    /* -------- Logical Device -------- */
+    float graphics_queue_priority = 1.0;
+
+    // Graphics queue
+    VkDeviceQueueCreateInfo graphics_queue_create_info{};
+    graphics_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    graphics_queue_create_info.queueFamilyIndex = queue_family_indices.graphics_family.value();
+    graphics_queue_create_info.queueCount = 1;
+    graphics_queue_create_info.pQueuePriorities = &graphics_queue_priority;
+
+    // Enable some Vulkan 1.3 features
+    VkPhysicalDeviceVulkan13Features features13;
+    features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    features13.dynamicRendering = VK_TRUE;
+    features13.synchronization2 = VK_TRUE;
+
+    // Enable some Vulkan 1.2 features
+    VkPhysicalDeviceVulkan12Features features12;
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    features12.bufferDeviceAddress = VK_TRUE;
+    features12.descriptorIndexing = VK_TRUE;
+    features13.pNext = &features13;
+
+    // Create logical device features, links to future features struct chain
+    VkPhysicalDeviceFeatures2 device_features = {};
+    device_features.pNext = &features12;
+
+    // Make the creation information struct
+    VkDeviceCreateInfo device_create_info = {};
+    device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.pQueueCreateInfos = &graphics_queue_create_info;
+    device_create_info.queueCreateInfoCount = 1;
+    device_create_info.pNext = &device_features;
+
+    // Create the logical device
+    if(vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create logical device!");
+    }
+
+    // Command to reduce volk overhead
+    volkLoadDevice(device);
 }
+
 
 void IncandescentEngine::initialize_swapchain() {
     // To be implemented
