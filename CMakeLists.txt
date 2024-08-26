@@ -15,9 +15,7 @@ add_executable(incandescent-v0.1 src/main.cpp
         src/incandescent_engine.cpp
         src/incandescent_engine.h
         src/incandescent_types.h
-        src/VkBootstrapDispatch.h
-        src/VkBootstrap.h
-        src/VkBootstrap.cpp)
+)
 
 # Set where the ImGui files are stored
 set(IMGUI_PATH "/Users/jackkelley/code_packages/imgui-master")

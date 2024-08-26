@@ -6,7 +6,6 @@
 #define INCANDESCENT_ENGINE_H
 
 #include "incandescent_types.h"
-#include "VkBootstrapDispatch.h"
 
 class IncandescentEngine {
 public:
