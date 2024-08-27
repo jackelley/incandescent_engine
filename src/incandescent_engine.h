@@ -9,7 +9,6 @@
 
 class IncandescentEngine {
 public:
-
     // Internal flags
     bool is_initialized = false;
     int frame_number = 0;
@@ -24,6 +23,14 @@ public:
     VkDevice device;
     VkSurfaceKHR surface;
 
+    VkSwapchainKHR swapchain;
+    VkSurfaceFormatKHR swapchain_surface_format;
+    VkPresentModeKHR present_mode;
+
+    std::vector<VkImage> swapchain_images;
+    std::vector<VkImageView> swapchain_image_views;
+    VkExtent2D swapchain_extent;
+
     // Forward declaration reduces compile times and ambiguity for the compiler
     struct SDL_Window* window = nullptr;
 
@@ -37,7 +44,7 @@ public:
     void initialize_vulkan();
 
     // Initializes the swapchain
-    void initialize_swapchain();
+    void initialize_swapchain(int width, int height);
 
     // Initializes the command system
     void initialize_commands();
@@ -53,6 +60,10 @@ public:
 
     // Runs the main program loop
     void run();
+
+private:
+    void destroy_swapchain();
+
 };
 
 

@@ -14,11 +14,17 @@
 #include <deque>
 
 #define VK_NO_PROTOTYPES
+#include <MoltenVK/mvk_vulkan.h>
+#include <MoltenVK/mvk_config.h>
+#include <MoltenVK/vk_mvk_moltenvk.h>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_beta.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#include <SDL2/SDL_vulkan.h>
+#include <SDL2/SDL.h>
 
 #include <fmt/core.h>
 #include <Eigen/Dense>

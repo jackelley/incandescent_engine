@@ -15,11 +15,17 @@
 #include <queue>
 #include <volk.h>
 
+#ifdef __APPLE__
+#ifndef VK_USE_PLATFORM_METAL_EXT
+#define VK_USE_PLATFORM_METAL_EXT
+#endif
+#endif
+
 constexpr bool use_validation_layers = true;
 
-IncandescentEngine* loaded_engine = nullptr;
+IncandescentEngine *loaded_engine = nullptr;
 
-IncandescentEngine& IncandescentEngine::Get() {
+IncandescentEngine &IncandescentEngine::Get() {
     return *loaded_engine;
 }
 
@@ -40,11 +46,11 @@ void IncandescentEngine::initialize() {
     SDL_WindowFlags window_flags = (SDL_WINDOW_VULKAN);
 
     window = SDL_CreateWindow("Incandescent Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                              WIDTH, HEIGHT, window_flags);
+                              WIDTH, HEIGHT, SDL_WINDOW_VULKAN);
 
     initialize_vulkan();
 
-    initialize_swapchain();
+    initialize_swapchain(WIDTH, HEIGHT);
 
     initialize_commands();
 
@@ -56,11 +62,6 @@ void IncandescentEngine::initialize() {
 
 void IncandescentEngine::initialize_vulkan() {
     /* -------- Instance -------- */
-
-    // Get number of extensions
-    u_int32_t extension_count = 0;
-    SDL_Vulkan_GetInstanceExtensions(window, &extension_count, nullptr);
-
     VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app_info.pApplicationName = "Incandescent v0.1";
     app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -68,25 +69,39 @@ void IncandescentEngine::initialize_vulkan() {
     app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     app_info.apiVersion = VK_API_VERSION_1_3;
 
-    // Activate portability bit for MoltenVK (funny mac)
-    std::vector<const char*> extension_names;
-    extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-    extension_names.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-    extension_count += 2;
+    // Activate extensions portability bit for MoltenVK (funny mac)
+    std::vector<const char *> instance_extension_names;
+    instance_extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    instance_extension_names.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    instance_extension_names.push_back("VK_KHR_surface");
+
+    // Activate layers
+    const std::vector<const char *> validation_layers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
 
     // Get SDL needed extensions
-    std::vector<const char*> sdl_extensions;
-    SDL_Vulkan_GetInstanceExtensions(window, &extension_count, sdl_extensions.data());
+    u_int32_t sdl_extensions_count;
+    SDL_Vulkan_GetInstanceExtensions(window, &sdl_extensions_count, nullptr);
+    std::vector<const char *> sdl_extensions(sdl_extensions_count);
+    SDL_Vulkan_GetInstanceExtensions(window, &sdl_extensions_count, sdl_extensions.data());
+
 
     // Combine extension lists
-    extension_names.insert(extension_names.end(), sdl_extensions.begin(), sdl_extensions.end());
+    instance_extension_names.insert(instance_extension_names.end(), sdl_extensions.begin(), sdl_extensions.end());
 
     // Create instance creation information
     VkInstanceCreateInfo inst_info = {};
+    inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     inst_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     inst_info.pApplicationInfo = &app_info;
-    inst_info.enabledExtensionCount = static_cast<uint32_t>(extension_names.size());
-    inst_info.ppEnabledExtensionNames = extension_names.data();
+    inst_info.enabledExtensionCount = static_cast<u_int32_t>(instance_extension_names.size());
+    inst_info.ppEnabledExtensionNames = instance_extension_names.data();
+    inst_info.pNext = nullptr;
+    if (use_validation_layers) {
+        inst_info.enabledLayerCount = static_cast<u_int32_t>(validation_layers.size());
+        inst_info.ppEnabledLayerNames = validation_layers.data();
+    }
 
     // Create instance and assign to handle
     VkResult instance_result = vkCreateInstance(&inst_info, nullptr, &instance);
@@ -100,6 +115,9 @@ void IncandescentEngine::initialize_vulkan() {
     /* -------- Surface -------- */
     // Create the Vulkan surface
     SDL_Vulkan_CreateSurface(window, instance, &surface);
+    if (surface == nullptr) {
+        throw std::runtime_error("Failed to create surface!");
+    }
 
     /* -------- Physical Device -------- */
     VkPhysicalDevice physical_device;
@@ -119,7 +137,7 @@ void IncandescentEngine::initialize_vulkan() {
     physical_device = physical_devices.front();
 
     // For all of our found devices
-    for (const auto &device : physical_devices) {
+    for (const auto &device: physical_devices) {
         VkPhysicalDeviceProperties physical_device_properties;
         vkGetPhysicalDeviceProperties(device, &physical_device_properties);
         // Select if the physical device is a discrete GPU
@@ -130,6 +148,9 @@ void IncandescentEngine::initialize_vulkan() {
         }
     }
 
+    // Assign handle
+    selected_gpu = physical_device;
+
     // https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
     // https://github.com/zeux/volk?tab=readme-ov-file#optimizing-device-calls
 
@@ -137,9 +158,23 @@ void IncandescentEngine::initialize_vulkan() {
     struct queue_family_indices_struct {
         // Graphics queue family
         std::optional<u_int32_t> graphics_family;
-        // Add to this to check for other graphics families
+
         bool has_graphics_family() {
             return graphics_family.has_value();
+        }
+
+        // Compute queue family
+        std::optional<u_int32_t> compute_family;
+
+        bool has_compute_family() {
+            return compute_family.has_value();
+        }
+
+        // Present queue family
+        std::optional<u_int32_t> present_family;
+
+        bool has_present_family() {
+            return present_family.has_value();
         }
     };
 
@@ -169,13 +204,27 @@ void IncandescentEngine::initialize_vulkan() {
     for (int i = 0; i < queue_family_count; i++) {
         // Try to find graphics queue family via checking if reference exists in queueFlags bitmask
         if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            queue_family_indices.graphics_family = i;
+            queue_family_indices.compute_family = i;
             break;
         }
     }
-    if (!queue_family_indices.has_graphics_family()) {
+    if (!queue_family_indices.has_compute_family()) {
         throw std::runtime_error("Queue family supporting compute not found!");
     }
+
+    // // Present queue
+    // VkBool32 present_support = false;
+    // for (int i = 0; i < queue_family_count; i++) {
+    //     vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_support);
+    //     if (present_support == true) {
+    //         queue_family_indices.graphics_family = i;
+    //         break;
+    //     }
+    // }
+    // if (!queue_family_indices.has_present_family()) {
+    //     throw std::runtime_error("Queue family supporting present not found!");
+    // }
+
 
     /* -------- Logical Device -------- */
     float graphics_queue_priority = 1.0;
@@ -198,11 +247,28 @@ void IncandescentEngine::initialize_vulkan() {
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features12.bufferDeviceAddress = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
-    features13.pNext = &features13;
+    // features12.pNext = &features13;
 
     // Create logical device features, links to future features struct chain
     VkPhysicalDeviceFeatures2 device_features = {};
+    device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     device_features.pNext = &features12;
+
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature = {};
+    dynamic_rendering_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+    dynamic_rendering_feature.dynamicRendering = VK_TRUE;
+
+    VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2_features = {};
+    synchronization2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
+    synchronization2_features.synchronization2 = VK_TRUE;
+
+    // Must manually add Vulan 1.3 features for MoltenVK compatibility (still not on version 1.3)
+    std::vector<const char *> device_extension_names;
+    device_extension_names.push_back("VK_KHR_swapchain");
+    device_extension_names.push_back("VK_KHR_dynamic_rendering");
+    // device_extension_names.push_back("VK_KHR_surface");
+    device_extension_names.push_back("VK_KHR_portability_subset");
+    device_extension_names.push_back("VK_KHR_synchronization2");
 
     // Make the creation information struct
     VkDeviceCreateInfo device_create_info = {};
@@ -210,9 +276,12 @@ void IncandescentEngine::initialize_vulkan() {
     device_create_info.pQueueCreateInfos = &graphics_queue_create_info;
     device_create_info.queueCreateInfoCount = 1;
     device_create_info.pNext = &device_features;
+    device_create_info.enabledExtensionCount = static_cast<uint32_t>(device_extension_names.size());
+    device_create_info.ppEnabledExtensionNames = device_extension_names.data();
 
     // Create the logical device
-    if(vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS) {
+    if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS) {
+        std::cout << vkCreateDevice(physical_device, &device_create_info, nullptr, &device) << std::endl;
         throw std::runtime_error("Failed to create logical device!");
     }
 
@@ -221,8 +290,106 @@ void IncandescentEngine::initialize_vulkan() {
 }
 
 
-void IncandescentEngine::initialize_swapchain() {
-    // To be implemented
+void IncandescentEngine::initialize_swapchain(int width, int height) {
+    // Struct to access hardware supports
+    struct swapchain_support_details_struct {
+        VkSurfaceCapabilitiesKHR surface_capabilities;
+        std::vector<VkSurfaceFormatKHR> formats;
+        std::vector<VkPresentModeKHR> present_modes;
+    };
+
+    swapchain_support_details_struct swapchain_support_details = {};
+
+    // Get basic capabilities
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(selected_gpu, surface, &swapchain_support_details.surface_capabilities);
+
+    // Get supported formats
+    u_int32_t format_count;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(selected_gpu, surface, &format_count, nullptr);
+
+    if (format_count != 0) {
+        swapchain_support_details.formats.resize(format_count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            selected_gpu, surface, &format_count, swapchain_support_details.formats.data());
+    }
+
+    // Get supported presentation modes
+    u_int32_t present_mode_count;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(selected_gpu, surface, &present_mode_count, nullptr);
+
+    if (present_mode_count != 0) {
+        swapchain_support_details.present_modes.resize(present_mode_count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            selected_gpu, surface, &present_mode_count, swapchain_support_details.present_modes.data());
+    }
+
+    // Pick SRGB if possible, otherwise pick first
+    swapchain_surface_format = swapchain_support_details.formats[0];
+    for (const auto &available_format: swapchain_support_details.formats) {
+        if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+            available_format.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
+            swapchain_surface_format = available_format;
+        }
+    }
+
+    // Choose present mode; prefer mailbox (triple buffering), then fifo (vsync)
+    present_mode = swapchain_support_details.present_modes[0];
+    for (const auto &available_present_mode: swapchain_support_details.present_modes) {
+        if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            present_mode = available_present_mode;
+        }
+    }
+
+    // Set extent
+    if (swapchain_support_details.surface_capabilities.currentExtent.width != std::numeric_limits<u_int32_t>::max()) {
+        swapchain_extent = swapchain_support_details.surface_capabilities.currentExtent;
+    } else {
+        // Asks SDL for the actual pixel size in case we are using something like a Retina display that lies
+        SDL_Vulkan_GetDrawableSize(window, &width, &height);
+
+        // Assign SDL returned width and height
+        swapchain_extent = {static_cast<u_int32_t>(width), static_cast<u_int32_t>(height)};
+
+        // Clamp to allowed extents
+        swapchain_extent.width = std::clamp(swapchain_extent.width,
+                                            swapchain_support_details.surface_capabilities.minImageExtent.width,
+                                            swapchain_support_details.surface_capabilities.maxImageExtent.width);
+        swapchain_extent.height = std::clamp(swapchain_extent.height,
+                                             swapchain_support_details.surface_capabilities.minImageExtent.height,
+                                             swapchain_support_details.surface_capabilities.maxImageExtent.height);
+    }
+
+    // Specify swapchain size
+    u_int32_t image_count = swapchain_support_details.surface_capabilities.minImageCount + 1;
+    // Dont exceed maximum
+    if (swapchain_support_details.surface_capabilities.maxImageCount > 0 &&
+        image_count > swapchain_support_details.surface_capabilities.maxImageCount) {
+        image_count = swapchain_support_details.surface_capabilities.maxImageCount;
+    }
+
+    // Create swapchain creation information
+    VkSwapchainCreateInfoKHR swapchain_create_info = {};
+    swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchain_create_info.surface = surface;
+    swapchain_create_info.minImageCount = image_count;
+    swapchain_create_info.imageFormat = swapchain_surface_format.format;
+    swapchain_create_info.imageColorSpace = swapchain_surface_format.colorSpace;
+    swapchain_create_info.imageExtent = swapchain_extent;
+    swapchain_create_info.imageArrayLayers = 1; // 1 because we are not going to use stereoscopic 3d lol
+    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    swapchain_create_info.preTransform = swapchain_support_details.surface_capabilities.currentTransform; // dont flip
+    swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // dont blend window
+    swapchain_create_info.presentMode = present_mode;
+    swapchain_create_info.clipped = VK_TRUE;
+    swapchain_create_info.oldSwapchain = VK_NULL_HANDLE; // change later when we need to handle recreating swapchain
+
+    // Create swapchain
+    VkResult swapchain_result = vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain);
+    if (swapchain_result != VK_SUCCESS) {
+        std::cout << swapchain_result << std::endl;
+        throw std::runtime_error("Failed to create swapchain!");
+    }
 }
 
 void IncandescentEngine::initialize_commands() {
@@ -232,9 +399,6 @@ void IncandescentEngine::initialize_commands() {
 void IncandescentEngine::initialize_sync_structures() {
     // To be implemented
 }
-
-
-
 
 void IncandescentEngine::cleanup() {
     if (is_initialized) {
