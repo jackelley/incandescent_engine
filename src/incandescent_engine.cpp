@@ -398,7 +398,10 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     swapchain_create_info.imageColorSpace = swapchain_surface_format.colorSpace;
     swapchain_create_info.imageExtent = swapchain_extent;
     swapchain_create_info.imageArrayLayers = 1; // 1 because we are not going to use stereoscopic 3d lol
-    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    // This is really cool, basically what is happening is that both of these flags tell the corresponding bits
+    // in the thing that gets passed and read by imageUsage to be 1. Because we are doing a bitwise OR, they are
+    // both 1 because OR makes them 1 instead of 0 in the combined result if one or both are 1.
+    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     swapchain_create_info.preTransform = swapchain_support_details.surface_capabilities.currentTransform; // dont flip
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // dont blend window
