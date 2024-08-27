@@ -26,7 +26,6 @@ public:
     VkSwapchainKHR swapchain;
     VkSurfaceFormatKHR swapchain_surface_format;
     VkPresentModeKHR present_mode;
-
     std::vector<VkImage> swapchain_images;
     std::vector<VkImageView> swapchain_image_views;
     VkExtent2D swapchain_extent;

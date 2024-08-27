@@ -11,6 +11,7 @@
 #include <SDL2/SDL_vulkan.h>
 
 #define VOLK_IMPLEMENTATION
+#include <fstream>
 #include <iostream>
 #include <queue>
 #include <volk.h>
@@ -22,6 +23,7 @@
 #endif
 
 constexpr bool use_validation_layers = true;
+constexpr bool use_log_file = true;
 
 IncandescentEngine *loaded_engine = nullptr;
 
@@ -30,10 +32,21 @@ IncandescentEngine &IncandescentEngine::Get() {
 }
 
 void IncandescentEngine::initialize() {
+    // Create logfile
+    std::ofstream log_file;
+    log_file.open("./src/log_file.txt");
+    log_file << "Created log " << std::chrono::system_clock::now() << "\n";
+    log_file.close();
+
     // Initialize volk
     VkResult volk_init = volkInitialize();
     if (volk_init != VK_SUCCESS) {
         fmt::print("Vulkan loader failed!");
+    }
+    if (use_log_file) {
+        log_file.open("./src/log_file.txt", std::ios_base::app);
+        log_file << "Volk initialized\n";
+        log_file.close();
     }
 
     // Make sure that there isn't already an initialized engine
@@ -47,6 +60,14 @@ void IncandescentEngine::initialize() {
 
     window = SDL_CreateWindow("Incandescent Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                               WIDTH, HEIGHT, SDL_WINDOW_VULKAN);
+    if (window == nullptr) {
+        throw std::runtime_error("Window not initialized!");
+    }
+    if (use_log_file) {
+        log_file.open("./src/log_file.txt", std::ios_base::app);
+        log_file << "Window initialized\n";
+        log_file.close();
+    }
 
     initialize_vulkan();
 
@@ -85,7 +106,6 @@ void IncandescentEngine::initialize_vulkan() {
     SDL_Vulkan_GetInstanceExtensions(window, &sdl_extensions_count, nullptr);
     std::vector<const char *> sdl_extensions(sdl_extensions_count);
     SDL_Vulkan_GetInstanceExtensions(window, &sdl_extensions_count, sdl_extensions.data());
-
 
     // Combine extension lists
     instance_extension_names.insert(instance_extension_names.end(), sdl_extensions.begin(), sdl_extensions.end());
@@ -287,6 +307,8 @@ void IncandescentEngine::initialize_vulkan() {
 
     // Command to reduce volk overhead
     volkLoadDevice(device);
+
+    // https://github.com/vblanco20-1/vulkan-guide/blob/master/docs/new_chapter_1/vulkan_command_flow.md
 }
 
 
@@ -376,7 +398,7 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     swapchain_create_info.imageColorSpace = swapchain_surface_format.colorSpace;
     swapchain_create_info.imageExtent = swapchain_extent;
     swapchain_create_info.imageArrayLayers = 1; // 1 because we are not going to use stereoscopic 3d lol
-    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     swapchain_create_info.preTransform = swapchain_support_details.surface_capabilities.currentTransform; // dont flip
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // dont blend window
@@ -390,6 +412,43 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
         std::cout << swapchain_result << std::endl;
         throw std::runtime_error("Failed to create swapchain!");
     }
+
+    // Create swapchain images
+    u_int32_t swapchain_image_count;
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, nullptr);
+    swapchain_images.resize(swapchain_image_count);
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, swapchain_images.data());
+
+    // Create swapchain image views
+    swapchain_image_views.resize(swapchain_image_count);
+
+    // For each image in the swapchain, create an image view
+    for (u_int32_t i = 0; i < swapchain_image_count; i++) {
+        // Fill creation information struct
+        VkImageViewCreateInfo image_view_create_info = {};
+        image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        image_view_create_info.image = swapchain_images[i];  // We are looping over images, so this picks what we're on
+        image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        image_view_create_info.format = swapchain_surface_format.format;
+        image_view_create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        image_view_create_info.subresourceRange.baseMipLevel = 0;
+        image_view_create_info.subresourceRange.levelCount = 1;
+        image_view_create_info.subresourceRange.baseArrayLayer = 0;
+        image_view_create_info.subresourceRange.layerCount = 1;
+
+        // Create single image view
+        VkResult image_view_create_result = vkCreateImageView(device, &image_view_create_info,
+            nullptr, &swapchain_image_views[i]);
+        // Validate
+        if (image_view_create_result != VK_SUCCESS) {
+            std::cout << image_view_create_result << std::endl;
+            throw std::runtime_error("Failed to create image view!");
+        }
+    }
 }
 
 void IncandescentEngine::initialize_commands() {
@@ -402,12 +461,27 @@ void IncandescentEngine::initialize_sync_structures() {
 
 void IncandescentEngine::cleanup() {
     if (is_initialized) {
-        SDL_DestroyWindow(window);
+        // We must destroy in the reverse order we created (newest first)
+        destroy_swapchain();  // swapchain
+        vkDestroySurfaceKHR(instance, surface, nullptr);  // surface
+        vkDestroyDevice(device, nullptr);  // device
+        vkDestroyInstance(instance, nullptr);  // instance
+        SDL_DestroyWindow(window);  // window
     }
 
     // clear reference to now destroyed window/engine
     loaded_engine = nullptr;
 }
+
+void IncandescentEngine::destroy_swapchain() {
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+
+    // Destroy swapchain images views
+    for (u_int32_t i = 0; i < swapchain_images.size(); i++) {
+        vkDestroyImageView(device, swapchain_image_views[i], nullptr);
+    }
+}
+
 
 void IncandescentEngine::draw() {
     // To be implemented

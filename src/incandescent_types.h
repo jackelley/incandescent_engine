@@ -1,5 +1,3 @@
-// vulkan_guide.h : Include file for standard system include files,
-// or project specific include files.
 #ifndef INCANDESCENT_TYPES
 #define INCANDESCENT_TYPES
 
@@ -14,9 +12,11 @@
 #include <deque>
 
 #define VK_NO_PROTOTYPES
+#ifdef __APPLE__
 #include <MoltenVK/mvk_vulkan.h>
 #include <MoltenVK/mvk_config.h>
 #include <MoltenVK/vk_mvk_moltenvk.h>
+#endif
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_beta.h>
 #include <vulkan/vulkan_core.h>
