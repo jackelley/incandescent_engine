@@ -4646,7 +4646,7 @@ def CheckIncludeLine(filename, clean_lines, linenum, include_state, error):
     elif (include.endswith('.cc') and
           os.path.dirname(fileinfo.RepositoryName()) != os.path.dirname(include)):
       error(filename, linenum, 'build/include', 4,
-            'Do not include .cc files from other packages')
+            'Do not include .cc files from other third-party')
     elif not _THIRD_PARTY_HEADERS_PATTERN.match(include):
       include_state.include_list[-1].append((include, linenum))
 
