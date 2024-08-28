@@ -83,12 +83,14 @@ void IncandescentEngine::initialize() {
 
 void IncandescentEngine::initialize_vulkan() {
     /* -------- Instance -------- */
-    VkApplicationInfo app_info = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
-    app_info.pApplicationName = "Incandescent v0.1";
-    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    app_info.pEngineName = "No Engine";
-    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    app_info.apiVersion = VK_API_VERSION_1_3;
+    VkApplicationInfo application_info = {};
+    application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    application_info.pNext = nullptr;
+    application_info.pApplicationName = "Incandescent v0.1";
+    application_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    application_info.pEngineName = "No Engine";
+    application_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    application_info.apiVersion = VK_API_VERSION_1_3;
 
     // Activate extensions portability bit for MoltenVK (funny mac)
     std::vector<const char *> instance_extension_names;
@@ -102,7 +104,7 @@ void IncandescentEngine::initialize_vulkan() {
     };
 
     // Get SDL needed extensions
-    u_int32_t sdl_extensions_count;
+    uint32_t sdl_extensions_count;
     SDL_Vulkan_GetInstanceExtensions(window, &sdl_extensions_count, nullptr);
     std::vector<const char *> sdl_extensions(sdl_extensions_count);
     SDL_Vulkan_GetInstanceExtensions(window, &sdl_extensions_count, sdl_extensions.data());
@@ -111,26 +113,22 @@ void IncandescentEngine::initialize_vulkan() {
     instance_extension_names.insert(instance_extension_names.end(), sdl_extensions.begin(), sdl_extensions.end());
 
     // Create instance creation information
-    VkInstanceCreateInfo inst_info = {};
-    inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    inst_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-    inst_info.pApplicationInfo = &app_info;
-    inst_info.enabledExtensionCount = static_cast<u_int32_t>(instance_extension_names.size());
-    inst_info.ppEnabledExtensionNames = instance_extension_names.data();
-    inst_info.pNext = nullptr;
+    VkInstanceCreateInfo instance_create_info = {};
+    instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instance_create_info.pNext = nullptr;
+    instance_create_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    instance_create_info.pApplicationInfo = &application_info;
+    instance_create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extension_names.size());
+    instance_create_info.ppEnabledExtensionNames = instance_extension_names.data();
+    instance_create_info.pNext = nullptr;
     if (use_validation_layers) {
-        inst_info.enabledLayerCount = static_cast<u_int32_t>(validation_layers.size());
-        inst_info.ppEnabledLayerNames = validation_layers.data();
+        instance_create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
+        instance_create_info.ppEnabledLayerNames = validation_layers.data();
     }
 
     // Create instance and assign to handle
-    VkResult instance_result = vkCreateInstance(&inst_info, nullptr, &instance);
+    VK_CHECK(vkCreateInstance(&instance_create_info, nullptr, &instance));
     volkLoadInstance(instance);
-
-    // Validation
-    if (instance_result < 0) {
-        std::cout << "Failed to create instance!" << std::endl;
-    }
 
     /* -------- Surface -------- */
     // Create the Vulkan surface
@@ -143,11 +141,8 @@ void IncandescentEngine::initialize_vulkan() {
     VkPhysicalDevice physical_device;
 
     // Get count of devices
-    u_int32_t device_count = 0;
-    vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
-    if (device_count == 0) {
-        throw std::runtime_error("Failed to find  GPU!");
-    }
+    uint32_t device_count = 0;
+    VK_CHECK(vkEnumeratePhysicalDevices(instance, &device_count, nullptr));
 
     std::vector<VkPhysicalDevice> physical_devices(device_count);
     vkEnumeratePhysicalDevices(instance, &device_count, physical_devices.data());
@@ -174,24 +169,24 @@ void IncandescentEngine::initialize_vulkan() {
     // https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
     // https://github.com/zeux/volk?tab=readme-ov-file#optimizing-device-calls
 
-    // Create queue family struct for later
+    // Create queue family struct
     struct queue_family_indices_struct {
         // Graphics queue family
-        std::optional<u_int32_t> graphics_family;
+        std::optional<uint32_t> graphics_family;
 
         bool has_graphics_family() {
             return graphics_family.has_value();
         }
 
         // Compute queue family
-        std::optional<u_int32_t> compute_family;
+        std::optional<uint32_t> compute_family;
 
         bool has_compute_family() {
             return compute_family.has_value();
         }
 
         // Present queue family
-        std::optional<u_int32_t> present_family;
+        std::optional<uint32_t> present_family;
 
         bool has_present_family() {
             return present_family.has_value();
@@ -201,7 +196,7 @@ void IncandescentEngine::initialize_vulkan() {
     queue_family_indices_struct queue_family_indices;
 
     // Get vector of queue family property objects
-    u_int32_t queue_family_count = 0;
+    uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
 
     std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
@@ -216,11 +211,11 @@ void IncandescentEngine::initialize_vulkan() {
             break;
         }
     }
-
-    // Compute queue
     if (!queue_family_indices.has_graphics_family()) {
         throw std::runtime_error("Queue family supporting graphics not found!");
     }
+
+    // Compute queue
     for (int i = 0; i < queue_family_count; i++) {
         // Try to find graphics queue family via checking if reference exists in queueFlags bitmask
         if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
@@ -232,38 +227,25 @@ void IncandescentEngine::initialize_vulkan() {
         throw std::runtime_error("Queue family supporting compute not found!");
     }
 
-    // // Present queue
-    // VkBool32 present_support = false;
-    // for (int i = 0; i < queue_family_count; i++) {
-    //     vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_support);
-    //     if (present_support == true) {
-    //         queue_family_indices.graphics_family = i;
-    //         break;
-    //     }
-    // }
-    // if (!queue_family_indices.has_present_family()) {
-    //     throw std::runtime_error("Queue family supporting present not found!");
-    // }
-
-
     /* -------- Logical Device -------- */
     float graphics_queue_priority = 1.0;
 
     // Graphics queue
-    VkDeviceQueueCreateInfo graphics_queue_create_info{};
+    VkDeviceQueueCreateInfo graphics_queue_create_info = {};
     graphics_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    graphics_queue_create_info.pNext = nullptr;
     graphics_queue_create_info.queueFamilyIndex = queue_family_indices.graphics_family.value();
     graphics_queue_create_info.queueCount = 1;
     graphics_queue_create_info.pQueuePriorities = &graphics_queue_priority;
 
     // Enable some Vulkan 1.3 features
-    VkPhysicalDeviceVulkan13Features features13;
+    VkPhysicalDeviceVulkan13Features features13 = {};
     features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
 
     // Enable some Vulkan 1.2 features
-    VkPhysicalDeviceVulkan12Features features12;
+    VkPhysicalDeviceVulkan12Features features12 = {};
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features12.bufferDeviceAddress = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
@@ -293,6 +275,7 @@ void IncandescentEngine::initialize_vulkan() {
     // Make the creation information struct
     VkDeviceCreateInfo device_create_info = {};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.pNext = nullptr;
     device_create_info.pQueueCreateInfos = &graphics_queue_create_info;
     device_create_info.queueCreateInfoCount = 1;
     device_create_info.pNext = &device_features;
@@ -300,15 +283,17 @@ void IncandescentEngine::initialize_vulkan() {
     device_create_info.ppEnabledExtensionNames = device_extension_names.data();
 
     // Create the logical device
-    if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS) {
-        std::cout << vkCreateDevice(physical_device, &device_create_info, nullptr, &device) << std::endl;
-        throw std::runtime_error("Failed to create logical device!");
+    VK_CHECK(vkCreateDevice(physical_device, &device_create_info, nullptr, &device));
+
+    // Assign queue handle and family integer
+    vkGetDeviceQueue(device, queue_family_indices.graphics_family.value(), 0, &graphics_queue);
+    graphics_queue_family_index = queue_family_indices.graphics_family.value();
+    if (graphics_queue == nullptr) {
+        throw std::runtime_error("Failed to create graphics queue!");
     }
 
     // Command to reduce volk overhead
     volkLoadDevice(device);
-
-    // https://github.com/vblanco20-1/vulkan-guide/blob/master/docs/new_chapter_1/vulkan_command_flow.md
 }
 
 
@@ -326,7 +311,7 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(selected_gpu, surface, &swapchain_support_details.surface_capabilities);
 
     // Get supported formats
-    u_int32_t format_count;
+    uint32_t format_count;
     vkGetPhysicalDeviceSurfaceFormatsKHR(selected_gpu, surface, &format_count, nullptr);
 
     if (format_count != 0) {
@@ -336,7 +321,7 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     }
 
     // Get supported presentation modes
-    u_int32_t present_mode_count;
+    uint32_t present_mode_count;
     vkGetPhysicalDeviceSurfacePresentModesKHR(selected_gpu, surface, &present_mode_count, nullptr);
 
     if (present_mode_count != 0) {
@@ -359,18 +344,22 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     for (const auto &available_present_mode: swapchain_support_details.present_modes) {
         if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
             present_mode = available_present_mode;
+            break;
+        }
+        if (available_present_mode == VK_PRESENT_MODE_FIFO_KHR) {
+            present_mode = available_present_mode;
         }
     }
 
     // Set extent
-    if (swapchain_support_details.surface_capabilities.currentExtent.width != std::numeric_limits<u_int32_t>::max()) {
+    if (swapchain_support_details.surface_capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
         swapchain_extent = swapchain_support_details.surface_capabilities.currentExtent;
     } else {
         // Asks SDL for the actual pixel size in case we are using something like a Retina display that lies
         SDL_Vulkan_GetDrawableSize(window, &width, &height);
 
         // Assign SDL returned width and height
-        swapchain_extent = {static_cast<u_int32_t>(width), static_cast<u_int32_t>(height)};
+        swapchain_extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
         // Clamp to allowed extents
         swapchain_extent.width = std::clamp(swapchain_extent.width,
@@ -382,7 +371,7 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     }
 
     // Specify swapchain size
-    u_int32_t image_count = swapchain_support_details.surface_capabilities.minImageCount + 1;
+    uint32_t image_count = swapchain_support_details.surface_capabilities.minImageCount + 1;
     // Dont exceed maximum
     if (swapchain_support_details.surface_capabilities.maxImageCount > 0 &&
         image_count > swapchain_support_details.surface_capabilities.maxImageCount) {
@@ -392,6 +381,7 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     // Create swapchain creation information
     VkSwapchainCreateInfoKHR swapchain_create_info = {};
     swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchain_create_info.pNext = nullptr;
     swapchain_create_info.surface = surface;
     swapchain_create_info.minImageCount = image_count;
     swapchain_create_info.imageFormat = swapchain_surface_format.format;
@@ -410,14 +400,10 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     swapchain_create_info.oldSwapchain = VK_NULL_HANDLE; // change later when we need to handle recreating swapchain
 
     // Create swapchain
-    VkResult swapchain_result = vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain);
-    if (swapchain_result != VK_SUCCESS) {
-        std::cout << swapchain_result << std::endl;
-        throw std::runtime_error("Failed to create swapchain!");
-    }
+    VK_CHECK(vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain));
 
     // Create swapchain images
-    u_int32_t swapchain_image_count;
+    uint32_t swapchain_image_count;
     vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, nullptr);
     swapchain_images.resize(swapchain_image_count);
     vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, swapchain_images.data());
@@ -426,10 +412,11 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
     swapchain_image_views.resize(swapchain_image_count);
 
     // For each image in the swapchain, create an image view
-    for (u_int32_t i = 0; i < swapchain_image_count; i++) {
+    for (uint32_t i = 0; i < swapchain_image_count; i++) {
         // Fill creation information struct
         VkImageViewCreateInfo image_view_create_info = {};
         image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        image_view_create_info.pNext = nullptr;
         image_view_create_info.image = swapchain_images[i];  // We are looping over images, so this picks what we're on
         image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         image_view_create_info.format = swapchain_surface_format.format;
@@ -444,18 +431,32 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
         image_view_create_info.subresourceRange.layerCount = 1;
 
         // Create single image view
-        VkResult image_view_create_result = vkCreateImageView(device, &image_view_create_info,
-            nullptr, &swapchain_image_views[i]);
-        // Validate
-        if (image_view_create_result != VK_SUCCESS) {
-            std::cout << image_view_create_result << std::endl;
-            throw std::runtime_error("Failed to create image view!");
-        }
+        VK_CHECK(vkCreateImageView(device, &image_view_create_info, nullptr, &swapchain_image_views[i]));
     }
 }
 
 void IncandescentEngine::initialize_commands() {
-    // To be implemented
+    // Create a command pool information struct for the graphics queue
+    VkCommandPoolCreateInfo command_pool_create_info = {};
+    command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    command_pool_create_info.pNext = nullptr;
+    // We need to allow resetting of individual command buffers
+    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    command_pool_create_info.queueFamilyIndex = graphics_queue_family_index;
+
+    // Create command pool and command buffer for each frame
+    for (auto &[command_pool, main_command_buffer] : frames) {  // Each command_pool and main_command_buffer in frames
+        VK_CHECK(vkCreateCommandPool(device, &command_pool_create_info, nullptr, &command_pool));
+
+        // Allocate command buffer
+        VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
+        command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        command_buffer_allocate_info.pNext = nullptr;
+        command_buffer_allocate_info.commandPool = command_pool;
+        command_buffer_allocate_info.commandBufferCount = 1;
+        command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;  // Can be submitted directly
+        VK_CHECK(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &main_command_buffer));
+    }
 }
 
 void IncandescentEngine::initialize_sync_structures() {
@@ -480,7 +481,7 @@ void IncandescentEngine::destroy_swapchain() {
     vkDestroySwapchainKHR(device, swapchain, nullptr);
 
     // Destroy swapchain images views
-    for (u_int32_t i = 0; i < swapchain_images.size(); i++) {
+    for (uint32_t i = 0; i < swapchain_images.size(); i++) {
         vkDestroyImageView(device, swapchain_image_views[i], nullptr);
     }
 }

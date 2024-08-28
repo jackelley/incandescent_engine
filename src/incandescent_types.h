@@ -29,8 +29,6 @@
 #include <fmt/core.h>
 #include <Eigen/Dense>
 
-
-
 #define VK_CHECK(x)                                                     \
     do {                                                                \
         VkResult err = x;                                               \

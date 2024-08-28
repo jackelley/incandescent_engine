@@ -7,8 +7,24 @@
 
 #include "incandescent_types.h"
 
+// Create frame data struct
+struct FrameData {
+    // If adding more command buffer in the future, either make main_command buffer a vector and change logic
+    // in initialize_commands, or create a new vector and change logic as well.
+    VkCommandPool command_pool;
+    VkCommandBuffer main_command_buffer;
+};
+
+constexpr unsigned int FRAME_OVERLAP = 2;
+
 class IncandescentEngine {
 public:
+    // Frame information
+    FrameData frames[FRAME_OVERLAP];
+    FrameData get_current_frame() {
+        return frames[frame_number % FRAME_OVERLAP];  // Allows us to not directly access the frames array
+    }
+
     // Internal flags
     bool is_initialized = false;
     int frame_number = 0;
@@ -23,12 +39,17 @@ public:
     VkDevice device;
     VkSurfaceKHR surface;
 
+    // Vulkan swapchain
     VkSwapchainKHR swapchain;
     VkSurfaceFormatKHR swapchain_surface_format;
     VkPresentModeKHR present_mode;
     std::vector<VkImage> swapchain_images;
     std::vector<VkImageView> swapchain_image_views;
     VkExtent2D swapchain_extent;
+
+    // Vulkan queue
+    VkQueue graphics_queue;
+    uint32_t graphics_queue_family_index;
 
     // Forward declaration reduces compile times and ambiguity for the compiler
     struct SDL_Window* window = nullptr;
@@ -64,6 +85,5 @@ private:
     void destroy_swapchain();
 
 };
-
 
 #endif //INCANDESCENT_ENGINE_H
