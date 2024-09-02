@@ -1,2 +1,1 @@
-The VK_CHECK macro is defined in incandescent_engine.h and serves as a validation command for any Vulkan command
-that returns a VkResult.
+The VK_CHECK macro is defined in incandescent_engine.h and serves as a validation command for any Vulkan command that returns a VkResult.

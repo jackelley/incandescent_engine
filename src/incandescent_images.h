@@ -9,8 +9,12 @@
 #include <incandescent_engine.h>
 
 namespace incan_util {
-    void transition_image_graphics_graphics(VkCommandBuffer command_buffer, VkImage image, VkImageLayout current_layout,
-                                            VkImageLayout new_layout);
+    void transition_image_graphics_to_graphics(VkCommandBuffer command_buffer, VkImage image,
+                                               VkImageLayout current_layout,
+                                               VkImageLayout new_layout);
+
+    void copy_image_to_image(VkCommandBuffer command_buffer, VkImage source, VkImage destination,
+                             VkExtent2D source_extent, VkExtent2D destination_extent);
 }
 
 

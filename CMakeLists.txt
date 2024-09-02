@@ -23,6 +23,10 @@ add_executable(incandescent-v0.1 src/main.cpp
         src/incan_struct_init.h
 )
 
+if (APPLE)
+    target_compile_definitions(incandescent-v0.1 PUBLIC VK_EXT_metal_surface)
+endif ()
+
 target_include_directories(incandescent-v0.1 PRIVATE third-party/VulkanMemoryAllocator-master/build/install/include)
 target_link_directories(incandescent-v0.1 PRIVATE third-party/VulkanMemoryAllocator-master/build/install/include)
 target_include_directories(incandescent-v0.1 PRIVATE third-party/fastgltf-main)
@@ -37,6 +41,3 @@ target_link_libraries(incandescent-v0.1 PRIVATE Vulkan::Vulkan)
 target_link_libraries(incandescent-v0.1 PRIVATE Eigen3::Eigen)
 target_link_libraries(incandescent-v0.1 PRIVATE SDL2::SDL2)
 target_link_libraries(incandescent-v0.1 PRIVATE fmt::fmt-header-only)
-if (APPLE)
-    target_compile_definitions(incandescent-v0.1 PUBLIC VK_EXT_metal_surface)
-endif ()

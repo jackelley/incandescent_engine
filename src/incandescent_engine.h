@@ -54,8 +54,8 @@ public:
     bool is_initialized = false;
     int frame_number = 0;
     bool stop_rendering = false;
-    const int WIDTH = 1920;
-    const int HEIGHT = 1080;
+    uint32_t WIDTH = 1920;
+    uint32_t HEIGHT = 1080;
 
     // Vulkan instance
     VkInstance instance;
@@ -106,6 +106,9 @@ public:
 
     // Contains the draw loop
     void draw();
+
+    // Draws the background
+    void draw_background(VkCommandBuffer command_buffer);
 
     // Runs the main program loop
     void run();

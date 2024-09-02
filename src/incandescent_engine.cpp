@@ -304,10 +304,11 @@ void IncandescentEngine::initialize_vulkan() {
 
     // Must manually add Vulkan 1.3 features for MoltenVK compatibility (still not on version 1.3)
     std::vector<const char *> device_extension_names = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
-        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,  // needed for making a swapchain
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,  // dynamic rendering
+        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,  // needed for mac
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,  // synchronization2
+        VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME  // needed for vkCmdBlitImage2KHR because MoltenVK isn't on Vulkan 1.3
     };
     // device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     // device_extension_names.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
@@ -506,7 +507,9 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
         VK_CHECK(vkCreateImageView(device, &image_view_create_info, nullptr, &swapchain_image_views[i]));
     }
 
-    VkExtent3D draw_image_extent = {swapchain_extent.width, swapchain_extent.height, 1};
+    /* -------- Create image and image view we will draw to -------- */
+
+    VkExtent3D draw_image_extent = {WIDTH, HEIGHT, 1};
 
     // Hardcode draw format to 32-bit float
     draw_image.image_format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -521,9 +524,9 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
         draw_image.image_format, draw_image_usage_flags, draw_image_extent);
 
     VmaAllocationCreateInfo image_allocation_create_info = {};
-    image_allocation_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    image_allocation_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Tells VMA to put image into VRAM
     image_allocation_create_info.requiredFlags = static_cast<VkMemoryPropertyFlags>(
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); // Along with the previous line, this guarantees fastest memory access
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); // This guarantees fastest memory access
 
     // Allocate and create the image
     vmaCreateImage(allocator, &image_create_info, &image_allocation_create_info, &draw_image.image,
@@ -640,28 +643,36 @@ void IncandescentEngine::draw() {
     VkCommandBufferBeginInfo command_buffer_begin_info =
             incan_struct_init::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
+    // Set the extent of the current image to the window size
+    draw_extent.width = draw_image.image_extent.width;
+    draw_extent.height = draw_image.image_extent.height;
+
     // Start writing to the command buffer
     VK_CHECK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
 
-    // Transition swapchain to writeable mode; undefined (don't care/anything) to general layout for read and write
-    incan_util::transition_image_graphics_graphics(command_buffer, swapchain_images[swapchain_image_index],
-                                                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    // Transition the draw image into the general layout so we can write into it, the initial layout doesn't matter
+    // as we are overwriting it.
+    incan_util::transition_image_graphics_to_graphics(command_buffer, draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                      VK_IMAGE_LAYOUT_GENERAL);
+    // Call draw command
+    draw_background(command_buffer);
 
-    // Make a clear-color based on the frame number, repeats over 120 frame period
-    VkClearColorValue clear_color_value;
-    float flash = std::abs(std::sin(frame_number / 120.f));
-    clear_color_value = {{0.0f, 0.0f, flash, 1.0f}};
+    // Transition draw image to transfer source
+    incan_util::transition_image_graphics_to_graphics(command_buffer, draw_image.image, VK_IMAGE_LAYOUT_GENERAL,
+                                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    // Transition swapchain image to transfer destination
+    incan_util::transition_image_graphics_to_graphics(command_buffer, swapchain_images[swapchain_image_index],
+                                                      VK_IMAGE_LAYOUT_UNDEFINED,
+                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    // Range specifying the entire image
-    VkImageSubresourceRange clear_color_range = incan_struct_init::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+    // Copy draw image to swapchain
+    incan_util::copy_image_to_image(command_buffer, draw_image.image, swapchain_images[swapchain_image_index],
+                                    draw_extent, swapchain_extent);
 
-    // Clear image
-    vkCmdClearColorImage(command_buffer, swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_GENERAL,
-                         &clear_color_value, 1, &clear_color_range);
-
-    // Transition swapchain to present mode
-    incan_util::transition_image_graphics_graphics(command_buffer, swapchain_images[swapchain_image_index],
-                                                   VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    // Set swapchain image layout to present
+    incan_util::transition_image_graphics_to_graphics(command_buffer, swapchain_images[swapchain_image_index],
+                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     // Finalize command buffer
     VK_CHECK(vkEndCommandBuffer(command_buffer));
@@ -700,6 +711,19 @@ void IncandescentEngine::draw() {
     // Increment frame number
     frame_number++;
 }
+
+void IncandescentEngine::draw_background(VkCommandBuffer command_buffer) {
+    // Make a clear-color based off the frame number, repeating over 120 frames
+    VkClearColorValue clear_color_value;
+    float flash = std::abs(std::sin(frame_number / 120.f));
+    clear_color_value = {{0.0f, 0.0f, flash, 1.0f}};
+
+    VkImageSubresourceRange clear_color_range = incan_struct_init::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+
+    vkCmdClearColorImage(command_buffer, draw_image.image, VK_IMAGE_LAYOUT_GENERAL, &clear_color_value, 1,
+                         &clear_color_range);
+}
+
 
 void IncandescentEngine::run() {
     SDL_Event event;
