@@ -255,6 +255,9 @@ incandescent-v0.1_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 incandescent-v0.1_SOURCE_DIR:STATIC=/Users/jackkelley/CLionProjects/incandescent-v0.1
 
+//The directory containing a CMake configuration file for python3.
+python3_DIR:PATH=python3_DIR-NOTFOUND
+
 
 ########################
 # INTERNAL cache entries

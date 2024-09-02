@@ -23,6 +23,10 @@ add_executable(incandescent-v0.1 src/main.cpp
         src/incan_struct_init.h
 )
 
+# Compile shaders
+execute_process(COMMAND python3 shaders/compileshaders.py WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
+message(STATUS "Shaders compiled successfully")
+
 if (APPLE)
     target_compile_definitions(incandescent-v0.1 PUBLIC VK_EXT_metal_surface)
 endif ()

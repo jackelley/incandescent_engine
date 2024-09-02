@@ -1,14 +1,9 @@
 # ninja log v6
-3	639	1725295691584446226	CMakeFiles/incandescent-v0.1.dir/src/incandescent_images.cpp.o	30a4655fbd78cb27
-4	1186	1725294547437337916	CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o	dc6a7e068c122f0d
-6	1677	1725295441328611037	CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o	fc8bd44bfce00381
-2	29	1724687269173478763	incandescent-v0.1	9d8b7aef96536394
-1	79	1725299317474099784	build.ninja	51e5dd1abbf4f01a
-503	571	1724683020293342407	libImGui.a	9fe56badb591a543
-4	1142	1725294547437950514	CMakeFiles/incandescent-v0.1.dir/src/incan_struct_init.cpp.o	24e452ca7b0d7ad9
-639	668	1725295692220586964	src/incandescent-v0.1	815bc4f72fae060
-5	906	1725299404054273163	CMakeFiles/incandescent-v0.1.dir/src/incan_struct_init.cpp.o	24e452ca7b0d7ad9
-5	925	1725299404053856870	CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o	dc6a7e068c122f0d
 5	960	1725299404054187829	CMakeFiles/incandescent-v0.1.dir/src/incandescent_images.cpp.o	30a4655fbd78cb27
+5	925	1725299404053856870	CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o	dc6a7e068c122f0d
 5	1840	1725299404054088746	CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o	fc8bd44bfce00381
+2	29	1724687269173478763	incandescent-v0.1	9d8b7aef96536394
+1	79	1725300455136357080	build.ninja	51e5dd1abbf4f01a
+503	571	1724683020293342407	libImGui.a	9fe56badb591a543
+5	906	1725299404054273163	CMakeFiles/incandescent-v0.1.dir/src/incan_struct_init.cpp.o	24e452ca7b0d7ad9
 1868	1902	1725299405916955873	src/incandescent-v0.1	815bc4f72fae060
