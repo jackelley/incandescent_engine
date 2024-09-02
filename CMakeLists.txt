@@ -17,6 +17,10 @@ add_executable(incandescent-v0.1 src/main.cpp
         src/incandescent_engine.cpp
         src/incandescent_engine.h
         src/incandescent_types.h
+        src/incandescent_images.cpp
+        src/incandescent_images.h
+        src/incan_struct_init.cpp
+        src/incan_struct_init.h
 )
 
 target_include_directories(incandescent-v0.1 PRIVATE third-party/VulkanMemoryAllocator-master/build/install/include)

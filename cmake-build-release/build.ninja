@@ -65,6 +65,22 @@ build CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o: CXX_COMPIL
   OBJECT_DIR = CMakeFiles/incandescent-v0.1.dir
   OBJECT_FILE_DIR = CMakeFiles/incandescent-v0.1.dir/src
 
+build CMakeFiles/incandescent-v0.1.dir/src/incandescent_images.cpp.o: CXX_COMPILER__incandescent-v0.2e1_unscanned_Release /Users/jackkelley/CLionProjects/incandescent-v0.1/src/incandescent_images.cpp || cmake_object_order_depends_target_incandescent-v0.1
+  DEFINES = -DFMT_HEADER_ONLY=1 -DVK_EXT_metal_surface
+  DEP_FILE = CMakeFiles/incandescent-v0.1.dir/src/incandescent_images.cpp.o.d
+  FLAGS = -O3 -DNDEBUG -std=c++2b -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk -fcolor-diagnostics
+  INCLUDES = -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/VulkanMemoryAllocator-master/build/install/include -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/fastgltf-main -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/stb-master -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/imgui-master -I/Users/jackkelley/CLionProjects/incandescent-v0.1/./src -isystem /usr/local/include -isystem /opt/homebrew/include/eigen3 -isystem /opt/homebrew/Cellar/sdl2/2.30.6/include/SDL2 -isystem /opt/homebrew/include
+  OBJECT_DIR = CMakeFiles/incandescent-v0.1.dir
+  OBJECT_FILE_DIR = CMakeFiles/incandescent-v0.1.dir/src
+
+build CMakeFiles/incandescent-v0.1.dir/src/incan_struct_init.cpp.o: CXX_COMPILER__incandescent-v0.2e1_unscanned_Release /Users/jackkelley/CLionProjects/incandescent-v0.1/src/incan_struct_init.cpp || cmake_object_order_depends_target_incandescent-v0.1
+  DEFINES = -DFMT_HEADER_ONLY=1 -DVK_EXT_metal_surface
+  DEP_FILE = CMakeFiles/incandescent-v0.1.dir/src/incan_struct_init.cpp.o.d
+  FLAGS = -O3 -DNDEBUG -std=c++2b -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk -fcolor-diagnostics
+  INCLUDES = -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/VulkanMemoryAllocator-master/build/install/include -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/fastgltf-main -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/stb-master -I/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/imgui-master -I/Users/jackkelley/CLionProjects/incandescent-v0.1/./src -isystem /usr/local/include -isystem /opt/homebrew/include/eigen3 -isystem /opt/homebrew/Cellar/sdl2/2.30.6/include/SDL2 -isystem /opt/homebrew/include
+  OBJECT_DIR = CMakeFiles/incandescent-v0.1.dir
+  OBJECT_FILE_DIR = CMakeFiles/incandescent-v0.1.dir/src
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target incandescent-v0.1
@@ -73,7 +89,7 @@ build CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o: CXX_COMPIL
 #############################################
 # Link the executable src/incandescent-v0.1
 
-build src/incandescent-v0.1: CXX_EXECUTABLE_LINKER__incandescent-v0.2e1_Release CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o | /usr/local/lib/libvulkan.dylib /opt/homebrew/Cellar/sdl2/2.30.6/lib/libSDL2.dylib
+build src/incandescent-v0.1: CXX_EXECUTABLE_LINKER__incandescent-v0.2e1_Release CMakeFiles/incandescent-v0.1.dir/src/main.cpp.o CMakeFiles/incandescent-v0.1.dir/src/incandescent_engine.cpp.o CMakeFiles/incandescent-v0.1.dir/src/incandescent_images.cpp.o CMakeFiles/incandescent-v0.1.dir/src/incan_struct_init.cpp.o | /usr/local/lib/libvulkan.dylib /opt/homebrew/Cellar/sdl2/2.30.6/lib/libSDL2.dylib
   FLAGS = -O3 -DNDEBUG -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk
   LINK_LIBRARIES = -Wl,-rpath,/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/VulkanMemoryAllocator-master/build/install/include -Wl,-rpath,/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/fastgltf-main -Wl,-rpath,/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/stb-master -Wl,-rpath,/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/imgui-master -Wl,-rpath,/Users/jackkelley/CLionProjects/incandescent-v0.1/./src -Wl,-rpath,/opt/homebrew/Cellar/sdl2/2.30.6/lib -Wl,-rpath,/usr/local/lib  /usr/local/lib/libvulkan.dylib  /opt/homebrew/Cellar/sdl2/2.30.6/lib/libSDL2.dylib
   LINK_PATH = -L/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/VulkanMemoryAllocator-master/build/install/include   -L/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/fastgltf-main   -L/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/stb-master   -L/Users/jackkelley/CLionProjects/incandescent-v0.1/third-party/imgui-master   -L/Users/jackkelley/CLionProjects/incandescent-v0.1/./src   -L/opt/homebrew/Cellar/sdl2/2.30.6/lib

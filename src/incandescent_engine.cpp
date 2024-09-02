@@ -3,6 +3,8 @@
 //
 #include <incandescent_types.h>
 #include <incandescent_engine.h>
+#include <incandescent_images.h>
+#include <incan_struct_init.h>
 
 #include <chrono>
 #include <thread>
@@ -17,12 +19,13 @@
 #include <volk.h>
 
 #ifdef __APPLE__
-#ifndef VK_USE_PLATFORM_METAL_EXT
-#define VK_USE_PLATFORM_METAL_EXT
+#ifndef VK_USE_PLATFORM_MACOS_MVK
+#define VK_USE_PLATFORM_MACOS_MVK
 #endif
 #endif
 
 constexpr bool use_validation_layers = true;
+constexpr bool use_api_dump = false;
 constexpr bool use_log_file = true;
 
 IncandescentEngine *loaded_engine = nullptr;
@@ -34,7 +37,7 @@ IncandescentEngine &IncandescentEngine::Get() {
 void IncandescentEngine::initialize() {
     // Create logfile
     std::ofstream log_file;
-    log_file.open("./src/log_file.txt");
+    log_file.open("./src/initialization_log_file.txt");
     log_file << "Created log " << std::chrono::system_clock::now() << "\n";
     log_file.close();
 
@@ -44,7 +47,7 @@ void IncandescentEngine::initialize() {
         fmt::print("Vulkan loader failed!");
     }
     if (use_log_file) {
-        log_file.open("./src/log_file.txt", std::ios_base::app);
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
         log_file << "Volk initialized\n";
         log_file.close();
     }
@@ -64,18 +67,38 @@ void IncandescentEngine::initialize() {
         throw std::runtime_error("Window not initialized!");
     }
     if (use_log_file) {
-        log_file.open("./src/log_file.txt", std::ios_base::app);
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
         log_file << "Window initialized\n";
         log_file.close();
     }
 
     initialize_vulkan();
+    if (use_log_file) {
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
+        log_file << "Vulkan initialized\n";
+        log_file.close();
+    }
 
     initialize_swapchain(WIDTH, HEIGHT);
+    if (use_log_file) {
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
+        log_file << "Swapchain initialized\n";
+        log_file.close();
+    }
 
     initialize_commands();
+    if (use_log_file) {
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
+        log_file << "Command buffers initialized\n";
+        log_file.close();
+    }
 
     initialize_sync_structures();
+    if (use_log_file) {
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
+        log_file << "Synchronization structures initialized\n";
+        log_file.close();
+    }
 
     // Set success check bool to true
     is_initialized = true;
@@ -87,21 +110,28 @@ void IncandescentEngine::initialize_vulkan() {
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pNext = nullptr;
     application_info.pApplicationName = "Incandescent v0.1";
-    application_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    application_info.pEngineName = "No Engine";
-    application_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    application_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
+    application_info.pEngineName = "Incandescent v0.1";
+    application_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
     application_info.apiVersion = VK_API_VERSION_1_3;
 
     // Activate extensions portability bit for MoltenVK (funny mac)
-    std::vector<const char *> instance_extension_names;
-    instance_extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-    instance_extension_names.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-    instance_extension_names.push_back("VK_KHR_surface");
+    std::vector<const char *> instance_extension_names = {
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+        VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+        VK_KHR_SURFACE_EXTENSION_NAME,
+    };
+    // instance_extension_names.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    // instance_extension_names.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    // instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
 
     // Activate layers
-    const std::vector<const char *> validation_layers = {
-        "VK_LAYER_KHRONOS_validation"
-    };
+    std::vector<const char *> validation_layers;
+        validation_layers.push_back("VK_LAYER_KHRONOS_validation");
+        if (use_api_dump) {
+            validation_layers.push_back("VK_LAYER_LUNARG_api_dump");
+        };
 
     // Get SDL needed extensions
     uint32_t sdl_extensions_count;
@@ -118,11 +148,11 @@ void IncandescentEngine::initialize_vulkan() {
     instance_create_info.pNext = nullptr;
     instance_create_info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     instance_create_info.pApplicationInfo = &application_info;
-    instance_create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extension_names.size());
+    instance_create_info.enabledExtensionCount = instance_extension_names.size();
     instance_create_info.ppEnabledExtensionNames = instance_extension_names.data();
     instance_create_info.pNext = nullptr;
     if (use_validation_layers) {
-        instance_create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
+        instance_create_info.enabledLayerCount = validation_layers.size();
         instance_create_info.ppEnabledLayerNames = validation_layers.data();
     }
 
@@ -244,33 +274,39 @@ void IncandescentEngine::initialize_vulkan() {
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
 
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature = {};
+    dynamic_rendering_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+    dynamic_rendering_feature.dynamicRendering = 1;
+    dynamic_rendering_feature.pNext = nullptr;
+
+    VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2_features = {};
+    synchronization2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
+    synchronization2_features.synchronization2 = 1;
+    synchronization2_features.pNext = &dynamic_rendering_feature;
+
     // Enable some Vulkan 1.2 features
     VkPhysicalDeviceVulkan12Features features12 = {};
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features12.bufferDeviceAddress = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
-    // features12.pNext = &features13;
+    features12.pNext = &synchronization2_features;
 
     // Create logical device features, links to future features struct chain
     VkPhysicalDeviceFeatures2 device_features = {};
     device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     device_features.pNext = &features12;
 
-    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature = {};
-    dynamic_rendering_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
-    dynamic_rendering_feature.dynamicRendering = VK_TRUE;
-
-    VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2_features = {};
-    synchronization2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
-    synchronization2_features.synchronization2 = VK_TRUE;
-
-    // Must manually add Vulan 1.3 features for MoltenVK compatibility (still not on version 1.3)
-    std::vector<const char *> device_extension_names;
-    device_extension_names.push_back("VK_KHR_swapchain");
-    device_extension_names.push_back("VK_KHR_dynamic_rendering");
-    // device_extension_names.push_back("VK_KHR_surface");
-    device_extension_names.push_back("VK_KHR_portability_subset");
-    device_extension_names.push_back("VK_KHR_synchronization2");
+    // Must manually add Vulkan 1.3 features for MoltenVK compatibility (still not on version 1.3)
+    std::vector<const char *> device_extension_names = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+    };
+    // device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    // device_extension_names.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+    // device_extension_names.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+    // device_extension_names.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 
     // Make the creation information struct
     VkDeviceCreateInfo device_create_info = {};
@@ -279,8 +315,9 @@ void IncandescentEngine::initialize_vulkan() {
     device_create_info.pQueueCreateInfos = &graphics_queue_create_info;
     device_create_info.queueCreateInfoCount = 1;
     device_create_info.pNext = &device_features;
-    device_create_info.enabledExtensionCount = static_cast<uint32_t>(device_extension_names.size());
+    device_create_info.enabledExtensionCount = device_extension_names.size();
     device_create_info.ppEnabledExtensionNames = device_extension_names.data();
+    device_create_info.pEnabledFeatures = nullptr;
 
     // Create the logical device
     VK_CHECK(vkCreateDevice(physical_device, &device_create_info, nullptr, &device));
@@ -298,7 +335,7 @@ void IncandescentEngine::initialize_vulkan() {
 
 
 void IncandescentEngine::initialize_swapchain(int width, int height) {
-    // Struct to access hardware supports
+    // Struct to access hardware supported capabilities
     struct swapchain_support_details_struct {
         VkSurfaceCapabilitiesKHR surface_capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
@@ -417,7 +454,7 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
         VkImageViewCreateInfo image_view_create_info = {};
         image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         image_view_create_info.pNext = nullptr;
-        image_view_create_info.image = swapchain_images[i];  // We are looping over images, so this picks what we're on
+        image_view_create_info.image = swapchain_images[i]; // We are looping over images, so this picks what we're on
         image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         image_view_create_info.format = swapchain_surface_format.format;
         image_view_create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -445,7 +482,7 @@ void IncandescentEngine::initialize_commands() {
     command_pool_create_info.queueFamilyIndex = graphics_queue_family_index;
 
     // Create command pool and command buffer for each frame
-    for (auto &[command_pool, main_command_buffer] : frames) {  // Each command_pool and main_command_buffer in frames
+    for (auto &[command_pool, main_command_buffer, swapchain_semaphore, render_semaphore, render_fence]: frames) {
         VK_CHECK(vkCreateCommandPool(device, &command_pool_create_info, nullptr, &command_pool));
 
         // Allocate command buffer
@@ -454,23 +491,50 @@ void IncandescentEngine::initialize_commands() {
         command_buffer_allocate_info.pNext = nullptr;
         command_buffer_allocate_info.commandPool = command_pool;
         command_buffer_allocate_info.commandBufferCount = 1;
-        command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;  // Can be submitted directly
+        command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submitted directly
         VK_CHECK(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &main_command_buffer));
     }
 }
 
 void IncandescentEngine::initialize_sync_structures() {
-    // To be implemented
+    // Fence controls when the GPU finishes rendering the frame
+    // Semaphores synchronize with the swapchain
+    // Fence starts signaled so we can wait on it starting from the first frame
+    VkFenceCreateInfo fence_create_info = incan_struct_init::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+
+    VkSemaphoreCreateInfo semaphore_create_info = incan_struct_init::semaphore_create_info();
+
+    // Create fence and semaphores for each frame
+    for (auto &[command_pool, main_command_buffer, swapchain_semaphore, render_semaphore, render_fence]: frames) {
+        VK_CHECK(vkCreateFence(device, &fence_create_info, nullptr, &render_fence));
+        VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &swapchain_semaphore));
+        VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &render_semaphore));
+    }
 }
 
 void IncandescentEngine::cleanup() {
     if (is_initialized) {
         // We must destroy in the reverse order we created (newest first)
-        destroy_swapchain();  // swapchain
-        vkDestroySurfaceKHR(instance, surface, nullptr);  // surface
-        vkDestroyDevice(device, nullptr);  // device
-        vkDestroyInstance(instance, nullptr);  // instance
-        SDL_DestroyWindow(window);  // window
+        if (is_initialized) {
+            // Wait until the GPU completes all outstanding queue operations
+            vkDeviceWaitIdle(device);
+
+            for (auto &[command_pool, main_command_buffer, swapchain_semaphore,
+                     render_semaphore, render_fence]: frames) {
+                // Destroy command pool and buffers
+                vkDestroyCommandPool(device, command_pool, nullptr);
+
+                // Destroy sync objects
+                vkDestroySemaphore(device, swapchain_semaphore, nullptr);
+                vkDestroySemaphore(device, render_semaphore, nullptr);
+                vkDestroyFence(device, render_fence, nullptr);
+            }
+        }
+        destroy_swapchain(); // swapchain
+        vkDestroySurfaceKHR(instance, surface, nullptr); // surface
+        vkDestroyDevice(device, nullptr); // device
+        vkDestroyInstance(instance, nullptr); // instance
+        SDL_DestroyWindow(window); // window
     }
 
     // clear reference to now destroyed window/engine
@@ -488,7 +552,85 @@ void IncandescentEngine::destroy_swapchain() {
 
 
 void IncandescentEngine::draw() {
-    // To be implemented
+    // Start by waiting for the GPU to finish rendering the last frame, with a timeout of 1 second (nanoseconds)
+    VK_CHECK(vkWaitForFences(device, 1, &get_current_frame().render_fence, true, 1000000000));
+    VK_CHECK(vkResetFences(device, 1, &get_current_frame().render_fence)); // Reset the fence after use
+
+    // Request image from swapchain, swapchain semaphore signals when image is acquired
+    uint32_t swapchain_image_index;
+    VK_CHECK(vkAcquireNextImageKHR(device, swapchain, 1000000000, get_current_frame().swapchain_semaphore,
+        nullptr, &swapchain_image_index));
+
+    // Get the command buffer for this frame
+    VkCommandBuffer command_buffer = get_current_frame().main_command_buffer;
+
+    // We know the commands are done executing because of the fence above, so we can safely reset the command buffer
+    VK_CHECK(vkResetCommandBuffer(command_buffer, 0));
+
+    // Get new command buffer begin info so we can start writing to the command buffer again
+    // One time usage bit gives small speedup, we tell Vulkan we are only submitting and executing this buffer once
+    VkCommandBufferBeginInfo command_buffer_begin_info =
+            incan_struct_init::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    // Start writing to the command buffer
+    VK_CHECK(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
+
+    // Transition swapchain to writeable mode; undefined (don't care/anything) to general layout for read and write
+    incan_util::transition_image_graphics_graphics(command_buffer, swapchain_images[swapchain_image_index],
+                                                   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+    // Make a clear-color based on the frame number, repeats over 120 frame period
+    VkClearColorValue clear_color_value;
+    float flash = std::abs(std::sin(frame_number / 120.f));
+    clear_color_value = {{0.0f, 0.0f, flash, 1.0f}};
+
+    // Range specifying the entire image
+    VkImageSubresourceRange clear_color_range = incan_struct_init::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+
+    // Clear image
+    vkCmdClearColorImage(command_buffer, swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_GENERAL,
+                         &clear_color_value, 1, &clear_color_range);
+
+    // Transition swapchain to present mode
+    incan_util::transition_image_graphics_graphics(command_buffer, swapchain_images[swapchain_image_index],
+                                                   VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    // Finalize command buffer
+    VK_CHECK(vkEndCommandBuffer(command_buffer));
+
+    // Prepare the queue submission
+    VkCommandBufferSubmitInfo command_buffer_submit_info =
+            incan_struct_init::command_buffer_submit_info(command_buffer);
+
+    // We want to wait on the semaphore that is signalled when the swapchain is ready
+    VkSemaphoreSubmitInfo wait_info =
+            incan_struct_init::semaphore_submit_info(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+                                                     get_current_frame().swapchain_semaphore);
+
+    // We signal when the rendering is done with this semaphore
+    VkSemaphoreSubmitInfo signal_info =
+            incan_struct_init::semaphore_submit_info(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                                                     get_current_frame().render_semaphore);
+
+    VkSubmitInfo2 submit_info = incan_struct_init::submit_info(&command_buffer_submit_info, &signal_info, &wait_info);
+
+    // Submit the command buffer, render_fence will block the queue until this command buffer finishes
+    VK_CHECK(vkQueueSubmit2KHR(graphics_queue, 1, &submit_info, get_current_frame().render_fence));
+
+    // Present the rendered image to the window, we will wait on the render semaphore
+    VkPresentInfoKHR present_info = {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.pNext = nullptr;
+    present_info.pSwapchains = &swapchain;
+    present_info.swapchainCount = 1;
+    present_info.pWaitSemaphores = &get_current_frame().render_semaphore;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pImageIndices = &swapchain_image_index;
+
+    VK_CHECK(vkQueuePresentKHR(graphics_queue, &present_info));
+
+    // Increment frame number
+    frame_number++;
 }
 
 void IncandescentEngine::run() {

@@ -13,6 +13,10 @@ struct FrameData {
     // in initialize_commands, or create a new vector and change logic as well.
     VkCommandPool command_pool;
     VkCommandBuffer main_command_buffer;
+    // Synchronization structures
+    VkSemaphore swapchain_semaphore; // Lets the render commands wait on the swapchain image request
+    VkSemaphore render_semaphore; // Controls presenting the image once the draw is finished
+    VkFence render_fence; // Lets us wait for the draw commands for the frame to be finished
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -21,16 +25,17 @@ class IncandescentEngine {
 public:
     // Frame information
     FrameData frames[FRAME_OVERLAP];
-    FrameData get_current_frame() {
-        return frames[frame_number % FRAME_OVERLAP];  // Allows us to not directly access the frames array
+    // Gets the address of the current frame, allows us to not worry about directly accessing the frames array
+    FrameData &get_current_frame() {
+        return frames[frame_number % FRAME_OVERLAP];
     }
 
     // Internal flags
     bool is_initialized = false;
     int frame_number = 0;
     bool stop_rendering = false;
-    const int WIDTH = 1700;
-    const int HEIGHT = 900;
+    const int WIDTH = 1920;
+    const int HEIGHT = 1080;
 
     // Vulkan instance
     VkInstance instance;
@@ -52,10 +57,10 @@ public:
     uint32_t graphics_queue_family_index;
 
     // Forward declaration reduces compile times and ambiguity for the compiler
-    struct SDL_Window* window = nullptr;
+    struct SDL_Window *window = nullptr;
 
     // Ensures that there is only one instance of the engine somehow
-    static IncandescentEngine& Get();
+    static IncandescentEngine &Get();
 
     // Initializes the entire engine
     void initialize();
@@ -83,7 +88,6 @@ public:
 
 private:
     void destroy_swapchain();
-
 };
 
 #endif //INCANDESCENT_ENGINE_H
