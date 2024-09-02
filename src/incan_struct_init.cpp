@@ -83,3 +83,40 @@ VkSubmitInfo2 incan_struct_init::submit_info(VkCommandBufferSubmitInfo *command_
 
     return submit_info;
 }
+
+VkImageCreateInfo incan_struct_init::image_create_info(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent) {
+    VkImageCreateInfo image_create_info = {};
+    image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_create_info.pNext = nullptr;
+    image_create_info.imageType = VK_IMAGE_TYPE_2D;
+    image_create_info.format = format;
+    image_create_info.extent = extent;
+    image_create_info.mipLevels = 1;
+    image_create_info.arrayLayers = 1;
+    // Used for MSAA, we will not use it by default
+    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    // Store image on best GPU format
+    image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image_create_info.usage = usage_flags;
+
+    return image_create_info;
+}
+
+VkImageViewCreateInfo incan_struct_init::image_view_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags) {
+    // Build an image view for the depth image we will use for rendering
+    VkImageViewCreateInfo image_view_create_info = {};
+    image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    image_view_create_info.pNext = nullptr;
+    image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_create_info.image = image;
+    image_view_create_info.format = format;
+    image_view_create_info.subresourceRange.baseMipLevel = 0;
+    image_view_create_info.subresourceRange.levelCount = 1;
+    image_view_create_info.subresourceRange.baseArrayLayer = 0;
+    image_view_create_info.subresourceRange.layerCount = 1;
+    image_view_create_info.subresourceRange.aspectMask = aspect_flags;
+
+    return image_view_create_info;
+}
+
+

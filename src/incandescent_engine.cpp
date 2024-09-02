@@ -6,17 +6,23 @@
 #include <incandescent_images.h>
 #include <incan_struct_init.h>
 
-#include <chrono>
-#include <thread>
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
 #define VOLK_IMPLEMENTATION
+#include <volk.h>
+
+#define VMA_IMPLEMENTATION
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#include <vk_mem_alloc.h>
+
 #include <fstream>
 #include <iostream>
 #include <queue>
-#include <volk.h>
+#include <chrono>
+#include <thread>
 
 #ifdef __APPLE__
 #ifndef VK_USE_PLATFORM_MACOS_MVK
@@ -128,10 +134,10 @@ void IncandescentEngine::initialize_vulkan() {
 
     // Activate layers
     std::vector<const char *> validation_layers;
-        validation_layers.push_back("VK_LAYER_KHRONOS_validation");
-        if (use_api_dump) {
-            validation_layers.push_back("VK_LAYER_LUNARG_api_dump");
-        };
+    validation_layers.push_back("VK_LAYER_KHRONOS_validation");
+    if (use_api_dump) {
+        validation_layers.push_back("VK_LAYER_LUNARG_api_dump");
+    };
 
     // Get SDL needed extensions
     uint32_t sdl_extensions_count;
@@ -331,6 +337,35 @@ void IncandescentEngine::initialize_vulkan() {
 
     // Command to reduce volk overhead
     volkLoadDevice(device);
+
+    // We are using Volk, so we need to provide the memory related function pointers directly to VMA
+    VmaVulkanFunctions vma_vulkan_functions{};
+    vma_vulkan_functions.vkAllocateMemory = vkAllocateMemory;
+    vma_vulkan_functions.vkBindBufferMemory = vkBindBufferMemory;
+    vma_vulkan_functions.vkBindImageMemory = vkBindImageMemory;
+    vma_vulkan_functions.vkCreateBuffer = vkCreateBuffer;
+    vma_vulkan_functions.vkCreateImage = vkCreateImage;
+    vma_vulkan_functions.vkDestroyBuffer = vkDestroyBuffer;
+    vma_vulkan_functions.vkDestroyImage = vkDestroyImage;
+    vma_vulkan_functions.vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges;
+    vma_vulkan_functions.vkFreeMemory = vkFreeMemory;
+    vma_vulkan_functions.vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements;
+    vma_vulkan_functions.vkGetImageMemoryRequirements = vkGetImageMemoryRequirements;
+    vma_vulkan_functions.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
+    vma_vulkan_functions.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+    vma_vulkan_functions.vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges;
+    vma_vulkan_functions.vkMapMemory = vkMapMemory;
+    vma_vulkan_functions.vkUnmapMemory = vkUnmapMemory;
+    vma_vulkan_functions.vkCmdCopyBuffer = vkCmdCopyBuffer;
+
+    VmaAllocatorCreateInfo allocator_create_info = {};
+    allocator_create_info.physicalDevice = physical_device;
+    allocator_create_info.device = device;
+    allocator_create_info.instance = instance;
+    allocator_create_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT; // Lets us use GPU pointers
+    allocator_create_info.pVulkanFunctions = &vma_vulkan_functions;
+
+    vmaCreateAllocator(&allocator_create_info, &allocator);
 }
 
 
@@ -470,6 +505,34 @@ void IncandescentEngine::initialize_swapchain(int width, int height) {
         // Create single image view
         VK_CHECK(vkCreateImageView(device, &image_view_create_info, nullptr, &swapchain_image_views[i]));
     }
+
+    VkExtent3D draw_image_extent = {swapchain_extent.width, swapchain_extent.height, 1};
+
+    // Hardcode draw format to 32-bit float
+    draw_image.image_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    draw_image.image_extent = draw_image_extent;
+
+    VkImageUsageFlags draw_image_usage_flags = {};
+    // Read/write, usage_storage allows us to use compute shaders, color so we can do graphics
+    draw_image_usage_flags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    VkImageCreateInfo image_create_info = incan_struct_init::image_create_info(
+        draw_image.image_format, draw_image_usage_flags, draw_image_extent);
+
+    VmaAllocationCreateInfo image_allocation_create_info = {};
+    image_allocation_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    image_allocation_create_info.requiredFlags = static_cast<VkMemoryPropertyFlags>(
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); // Along with the previous line, this guarantees fastest memory access
+
+    // Allocate and create the image
+    vmaCreateImage(allocator, &image_create_info, &image_allocation_create_info, &draw_image.image,
+                   &draw_image.allocation, nullptr);
+
+    VkImageViewCreateInfo image_view_create_info = incan_struct_init::image_view_create_info(
+        draw_image.image_format, draw_image.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    VK_CHECK(vkCreateImageView(device, &image_view_create_info, nullptr, &draw_image.image_view));
 }
 
 void IncandescentEngine::initialize_commands() {
@@ -530,8 +593,13 @@ void IncandescentEngine::cleanup() {
                 vkDestroyFence(device, render_fence, nullptr);
             }
         }
+        // Flush global objects
+        vkDestroyImageView(device, draw_image.image_view, nullptr);
+
+        vmaDestroyImage(allocator, draw_image.image, draw_image.allocation);
         destroy_swapchain(); // swapchain
         vkDestroySurfaceKHR(instance, surface, nullptr); // surface
+        vmaDestroyAllocator(allocator);
         vkDestroyDevice(device, nullptr); // device
         vkDestroyInstance(instance, nullptr); // instance
         SDL_DestroyWindow(window); // window

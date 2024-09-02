@@ -6,6 +6,14 @@
 #define INCANDESCENT_ENGINE_H
 
 #include "incandescent_types.h"
+#include <vulkan/vulkan.h>
+
+// Create object handle/deletion struct
+struct DeleteHandles {
+    std::vector<VkImage> image_handles;
+    std::vector<VkImageView> image_view_handles;
+    std::vector<VkBuffer> buffer_handles;
+};
 
 // Create frame data struct
 struct FrameData {
@@ -19,10 +27,22 @@ struct FrameData {
     VkFence render_fence; // Lets us wait for the draw commands for the frame to be finished
 };
 
+// Struct to hold data for an image
+struct AllocatedImage {
+    VkImage image;
+    VkImageView image_view;
+    VmaAllocation allocation;
+    VkExtent3D image_extent;
+    VkFormat image_format;
+};
+
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 class IncandescentEngine {
 public:
+    // Memory allocator
+    VmaAllocator allocator;
+
     // Frame information
     FrameData frames[FRAME_OVERLAP];
     // Gets the address of the current frame, allows us to not worry about directly accessing the frames array
@@ -55,6 +75,10 @@ public:
     // Vulkan queue
     VkQueue graphics_queue;
     uint32_t graphics_queue_family_index;
+
+    // Draw resources
+    AllocatedImage draw_image;
+    VkExtent2D draw_extent;
 
     // Forward declaration reduces compile times and ambiguity for the compiler
     struct SDL_Window *window = nullptr;
