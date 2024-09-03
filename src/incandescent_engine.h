@@ -5,8 +5,8 @@
 #ifndef INCANDESCENT_ENGINE_H
 #define INCANDESCENT_ENGINE_H
 
-#include "incandescent_types.h"
-#include <vulkan/vulkan.h>
+#include <incandescent_types.h>
+#include <incandescent_descriptors.h>
 
 // Create object handle/deletion struct
 struct DeleteHandles {
@@ -40,6 +40,15 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 
 class IncandescentEngine {
 public:
+    // Descriptor allocator and set
+    DescriptorAllocator global_descriptor_allocator;
+    VkDescriptorSet draw_image_descriptor_set;
+    VkDescriptorSetLayout draw_image_descriptor_set_layout;
+
+    // Pipelines
+    VkPipeline gradient_pipeline;
+    VkPipelineLayout gradient_pipeline_layout;
+
     // Memory allocator
     VmaAllocator allocator;
 
@@ -114,7 +123,13 @@ public:
     void run();
 
 private:
+    void initialize_descriptors();
+
     void destroy_swapchain();
+
+    void initialize_pipelines();
+
+    void initialize_background_pipelines();
 };
 
 #endif //INCANDESCENT_ENGINE_H

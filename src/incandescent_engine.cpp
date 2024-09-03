@@ -106,6 +106,20 @@ void IncandescentEngine::initialize() {
         log_file.close();
     }
 
+    initialize_descriptors();
+    if (use_log_file) {
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
+        log_file << "Descriptors initialized\n";
+        log_file.close();
+    }
+
+    initialize_pipelines();
+    if (use_log_file) {
+        log_file.open("./src/initialization_log_file.txt", std::ios_base::app);
+        log_file << "Pipelines initialized\n";
+        log_file.close();
+    }
+
     // Set success check bool to true
     is_initialized = true;
 }
@@ -304,11 +318,11 @@ void IncandescentEngine::initialize_vulkan() {
 
     // Must manually add Vulkan 1.3 features for MoltenVK compatibility (still not on version 1.3)
     std::vector<const char *> device_extension_names = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,  // needed for making a swapchain
-        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,  // dynamic rendering
-        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,  // needed for mac
-        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,  // synchronization2
-        VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME  // needed for vkCmdBlitImage2KHR because MoltenVK isn't on Vulkan 1.3
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, // needed for making a swapchain
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, // dynamic rendering
+        VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, // needed for mac
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, // synchronization2
+        VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME // needed for vkCmdBlitImage2KHR because MoltenVK isn't on Vulkan 1.3
     };
     // device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     // device_extension_names.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
@@ -597,9 +611,13 @@ void IncandescentEngine::cleanup() {
             }
         }
         // Flush global objects
+        // vkDestroyShaderModule();
         vkDestroyImageView(device, draw_image.image_view, nullptr);
-
         vmaDestroyImage(allocator, draw_image.image, draw_image.allocation);
+        vkDestroyPipelineLayout(device, gradient_pipeline_layout, nullptr);
+        vkDestroyPipeline(device, gradient_pipeline, nullptr);
+        global_descriptor_allocator.destroy_pool(device);
+        vkDestroyDescriptorSetLayout(device, draw_image_descriptor_set_layout, nullptr);
         destroy_swapchain(); // swapchain
         vkDestroySurfaceKHR(instance, surface, nullptr); // surface
         vmaDestroyAllocator(allocator);
@@ -619,6 +637,77 @@ void IncandescentEngine::destroy_swapchain() {
     for (uint32_t i = 0; i < swapchain_images.size(); i++) {
         vkDestroyImageView(device, swapchain_image_views[i], nullptr);
     }
+}
+
+void IncandescentEngine::initialize_descriptors() {
+    // Create a descriptor pool to hold 10 sets with 1 image each
+    std::vector<DescriptorAllocator::PoolSizeRatio> pool_size_ratios = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
+
+    global_descriptor_allocator.initialize_pool(device, 10, pool_size_ratios);
+
+    // Create descriptor set layout for compute draw
+    DescriptorLayoutBuilder descriptor_layout_builder;
+    descriptor_layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    draw_image_descriptor_set_layout = descriptor_layout_builder.build(device, VK_SHADER_STAGE_COMPUTE_BIT);
+
+    // Allocate descriptor set for the draw image
+    draw_image_descriptor_set = global_descriptor_allocator.allocate(device, draw_image_descriptor_set_layout);
+
+    VkDescriptorImageInfo descriptor_image_info = {};
+    descriptor_image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    descriptor_image_info.imageView = draw_image.image_view;
+
+    VkWriteDescriptorSet draw_image_write_descriptor_set = {};
+    draw_image_write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    draw_image_write_descriptor_set.pNext = nullptr;
+    draw_image_write_descriptor_set.dstBinding = 0;
+    draw_image_write_descriptor_set.dstSet = draw_image_descriptor_set;
+    draw_image_write_descriptor_set.descriptorCount = 1;
+    draw_image_write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    draw_image_write_descriptor_set.pImageInfo = &descriptor_image_info;
+
+    vkUpdateDescriptorSets(device, 1, &draw_image_write_descriptor_set, 0, nullptr);
+}
+
+
+void IncandescentEngine::initialize_pipelines() {
+    initialize_background_pipelines();
+}
+
+
+void IncandescentEngine::initialize_background_pipelines() {
+    // Compute pipeline
+    VkPipelineLayoutCreateInfo compute_layout_create_info = {};
+    compute_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    compute_layout_create_info.pNext = nullptr;
+    compute_layout_create_info.pSetLayouts = &draw_image_descriptor_set_layout;
+    compute_layout_create_info.setLayoutCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &compute_layout_create_info, nullptr, &gradient_pipeline_layout));
+
+    // Load shader
+    VkShaderModule compute_draw_shader;
+    if (!incan_util::load_shader_module("shaders/gradient.comp.spv", device, &compute_draw_shader)) {
+        fmt::print("Error when building compute shader\n");
+    }
+
+    VkPipelineShaderStageCreateInfo shader_stage_create_info = {};
+    shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stage_create_info.pNext = nullptr;
+    shader_stage_create_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shader_stage_create_info.module = compute_draw_shader;
+    shader_stage_create_info.pName = "main";
+
+    VkComputePipelineCreateInfo compute_pipeline_create_info = {};
+    compute_pipeline_create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    compute_pipeline_create_info.pNext = nullptr;
+    compute_pipeline_create_info.layout = gradient_pipeline_layout;
+    compute_pipeline_create_info.stage = shader_stage_create_info;
+    // compute_pipeline_create_info.basePipelineIndex = 0;
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &gradient_pipeline));
+
+    vkDestroyShaderModule(device, compute_draw_shader, nullptr);
 }
 
 
@@ -720,8 +809,15 @@ void IncandescentEngine::draw_background(VkCommandBuffer command_buffer) {
 
     VkImageSubresourceRange clear_color_range = incan_struct_init::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
-    vkCmdClearColorImage(command_buffer, draw_image.image, VK_IMAGE_LAYOUT_GENERAL, &clear_color_value, 1,
-                         &clear_color_range);
+    // Bind the gradient draw compute pipeline
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, gradient_pipeline);
+
+    // Bind descriptor set containing draw image for the compute pipeline
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, gradient_pipeline_layout, 0, 1,
+                            &draw_image_descriptor_set, 0, nullptr);
+
+    // Dispatch pipeline, must match our compute shader workgroup size
+    vkCmdDispatch(command_buffer, std::ceil(draw_extent.width / 16.0), std::ceil(draw_extent.height / 16.0), 1);
 }
 
 

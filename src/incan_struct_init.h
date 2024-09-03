@@ -29,5 +29,7 @@ namespace incan_struct_init {
     VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent);
 
     VkImageViewCreateInfo image_view_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags);
+
+    bool load_shader_module(const char* file_path, VkDevice device, VkShaderModule* out_shader_module);
 }
 #endif //INCAN_STRUCT_INIT_H

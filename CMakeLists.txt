@@ -21,6 +21,10 @@ add_executable(incandescent-v0.1 src/main.cpp
         src/incandescent_images.h
         src/incan_struct_init.cpp
         src/incan_struct_init.h
+        src/incandescent_descriptors.cpp
+        src/incandescent_descriptors.h
+        src/incandescent_pipelines.cpp
+        src/incandescent_pipelines.h
 )
 
 # Compile shaders
@@ -39,8 +43,10 @@ target_include_directories(incandescent-v0.1 PRIVATE third-party/stb-master)
 target_link_directories(incandescent-v0.1 PRIVATE third-party/stb-master)
 target_include_directories(incandescent-v0.1 PRIVATE third-party/imgui-master)
 target_link_directories(incandescent-v0.1 PRIVATE third-party/imgui-master)
-target_include_directories(incandescent-v0.1 PRIVATE ./src)
-target_link_directories(incandescent-v0.1 PRIVATE ./src)
+target_include_directories(incandescent-v0.1 PRIVATE src)
+target_link_directories(incandescent-v0.1 PRIVATE src)
+target_include_directories(incandescent-v0.1 PRIVATE shaders)
+target_link_directories(incandescent-v0.1 PRIVATE shaders)
 target_link_libraries(incandescent-v0.1 PRIVATE Vulkan::Vulkan)
 target_link_libraries(incandescent-v0.1 PRIVATE Eigen3::Eigen)
 target_link_libraries(incandescent-v0.1 PRIVATE SDL2::SDL2)

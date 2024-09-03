@@ -2,6 +2,7 @@
 // Created by Jack Kelley on 9/1/24.
 //
 
+#include <fstream>
 #include <incan_struct_init.h>
 #include <incandescent_types.h>
 
@@ -118,5 +119,3 @@ VkImageViewCreateInfo incan_struct_init::image_view_create_info(VkFormat format,
 
     return image_view_create_info;
 }
-
-

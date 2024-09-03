@@ -1,0 +1,19 @@
+[[vk::image_format("rgba16f")]]
+[[vk::binding(0, 0)]] RWTexture2D<float4> image;
+
+[numthreads(16, 16, 1)]
+void main (uint3 texel_coordinate : SV_DispatchThreadID, uint3 local_group : SV_GroupThreadID) {
+    uint2 size;
+    image.GetDimensions(size.x, size.y);
+
+    if (texel_coordinate.x < size.x && texel_coordinate.y < size.y) {
+
+        float4 color = float4(0.0, 0.0, 0.0, 1.0);
+
+        if (local_group.x != 0 && local_group.y != 0) {
+            color.x = float(texel_coordinate.x)/(size.y);
+            color.y = float(texel_coordinate.y)/(size.x + size.y);
+            image[float2(texel_coordinate.xy)] = color;
+        }
+    }
+}
