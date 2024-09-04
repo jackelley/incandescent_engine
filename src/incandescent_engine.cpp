@@ -705,7 +705,9 @@ void IncandescentEngine::initialize_background_pipelines() {
     compute_pipeline_create_info.stage = shader_stage_create_info;
     // compute_pipeline_create_info.basePipelineIndex = 0;
 
-    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &gradient_pipeline));
+    VK_CHECK(
+        vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &gradient_pipeline))
+    ;
 
     vkDestroyShaderModule(device, compute_draw_shader, nullptr);
 }

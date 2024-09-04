@@ -15,8 +15,6 @@ namespace incan_util {
 
     void copy_image_to_image(VkCommandBuffer command_buffer, VkImage source, VkImage destination,
                              VkExtent2D source_extent, VkExtent2D destination_extent);
-
-    bool load_shader_module(const char *file_path, VkDevice device, VkShaderModule *out_shader_module);
 }
 
 
